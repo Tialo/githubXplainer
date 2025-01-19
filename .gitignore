@@ -1,1 +1,6 @@
 ai_communications
+venv
+.env
+.venv
+.vscode
+backend/**/__pycache__

@@ -1,0 +1,17 @@
+# API and Server
+fastapi==0.104.0
+uvicorn[standard]==0.23.2
+httpx==0.25.0
+
+# Database
+asyncpg==0.28.0
+
+# Data Models and Settings
+pydantic==2.4.2
+pydantic-settings==2.0.3
+python-dotenv==1.0.0
+
+# ORM
+sqlalchemy[asyncio]==2.0.23
+sqlmodel==0.0.14  # Updated version
+greenlet==3.0.1  # required for async SQLAlchemy
