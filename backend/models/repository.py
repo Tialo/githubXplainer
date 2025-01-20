@@ -6,7 +6,6 @@ class Repository(Base):
     __tablename__ = "repositories"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    github_id = Column(BigInteger, unique=True)
     full_name = Column(String)
     description = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True))
@@ -63,7 +62,6 @@ class Issue(Base):
     __tablename__ = "issues"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    github_id = Column(BigInteger, unique=True)
     number = Column(Integer)
     repository_id = Column(Integer, ForeignKey("repositories.id"))
     title = Column(String)
@@ -78,7 +76,6 @@ class Issue(Base):
     def from_github_data(cls, data: dict, repository_id: int):
         closed_at = data.get("closed_at")
         return cls(
-            github_id=data["id"],
             number=data["number"],
             repository_id=repository_id,
             title=data["title"],
@@ -94,7 +91,6 @@ class IssueComment(Base):
     __tablename__ = "issue_comments"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    github_id = Column(BigInteger, unique=True)
     issue_id = Column(BigInteger, ForeignKey("issues.id"))
     body = Column(String)
     created_at = Column(DateTime(timezone=True))
@@ -104,7 +100,6 @@ class IssueComment(Base):
     @classmethod
     def from_github_data(cls, data: dict, issue_id: int):
         return cls(
-            github_id=data["id"],
             issue_id=issue_id,
             body=data["body"],
             created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
@@ -116,7 +111,6 @@ class PullRequest(Base):
     __tablename__ = "pull_requests"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    github_id = Column(BigInteger, unique=True)
     number = Column(Integer)
     repository_id = Column(Integer, ForeignKey("repositories.id"))
     title = Column(String)
@@ -135,7 +129,6 @@ class PullRequest(Base):
         closed_at = data.get("closed_at")
         merged_at = data.get("merged_at")
         return cls(
-            github_id=data["id"],
             number=data["number"],
             repository_id=repository_id,
             title=data["title"],
@@ -154,7 +147,6 @@ class PullRequestComment(Base):
     __tablename__ = "pull_request_comments"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    github_id = Column(BigInteger, unique=True)
     pull_request_id = Column(Integer, ForeignKey("pull_requests.id"))
     body = Column(String)
     created_at = Column(DateTime(timezone=True))
@@ -166,7 +158,6 @@ class PullRequestComment(Base):
     def from_github_data(cls, data: dict, pull_request_id: int, is_initial: bool = False):
         if is_initial:
             return cls(
-                github_id=data["id"],
                 pull_request_id=pull_request_id,
                 body=data.get("body", ""),
                 created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
@@ -175,7 +166,6 @@ class PullRequestComment(Base):
                 is_initial=True
             )
         return cls(
-            github_id=data["id"],
             pull_request_id=pull_request_id,
             body=data["body"],
             created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),

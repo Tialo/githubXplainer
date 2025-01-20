@@ -14,6 +14,7 @@ class GitHubService:
     async def _make_request(self, endpoint: str, method: str = "GET", params: Optional[Dict] = None) -> Dict:
         async with httpx.AsyncClient() as client:
             for attempt in range(settings.max_retries):
+                response = None
                 try:
                     response = await client.request(
                         method,
@@ -26,7 +27,7 @@ class GitHubService:
                 except httpx.HTTPError as e:
                     if attempt == settings.max_retries - 1:
                         raise
-                    if response.status_code == 403 and "rate limit" in response.text.lower():
+                    if response and response.status_code == 403 and "rate limit" in response.text.lower():
                         time.sleep(settings.retry_delay)
                         continue
                     raise
