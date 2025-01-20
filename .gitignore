@@ -4,3 +4,4 @@ venv
 .venv
 .vscode
 backend/**/__pycache__
+logs

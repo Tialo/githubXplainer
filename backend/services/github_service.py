@@ -24,6 +24,8 @@ class GitHubService:
                     )
                     response.raise_for_status()
                     return response.json()
+                except httpx.ConnectTimeout:
+                    time.sleep(settings.retry_delay)
                 except httpx.HTTPError as e:
                     if attempt == settings.max_retries - 1:
                         raise
