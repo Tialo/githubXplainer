@@ -60,10 +60,10 @@ class Commit(Base):
 class Issue(Base):
     __tablename__ = "issues"
 
-    number = Column(Integer, primary_key=True)
-    repository_id = Column(Integer, ForeignKey("repositories.id"), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    number = Column(Integer)
+    repository_id = Column(Integer, ForeignKey("repositories.id"))
     title = Column(String)
-    body = Column(String, nullable=True)
     state = Column(String)
     created_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True))
@@ -78,7 +78,6 @@ class Issue(Base):
             number=data["number"],
             repository_id=repository_id,
             title=data["title"],
-            body=data.get("body"),
             state=data["state"],
             created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
@@ -87,13 +86,34 @@ class Issue(Base):
             labels=",".join(label["name"] for label in data["labels"])
         )
 
+class IssueComment(Base):
+    __tablename__ = "issue_comments"
+
+    id = Column(Integer, primary_key=True)
+    issue_id = Column(Integer, ForeignKey("issues.id"))
+    body = Column(String)
+    created_at = Column(DateTime(timezone=True))
+    updated_at = Column(DateTime(timezone=True))
+    author_login = Column(String)
+
+    @classmethod
+    def from_github_data(cls, data: dict, issue_id: int):
+        return cls(
+            id=data["id"],
+            issue_id=issue_id,
+            body=data["body"],
+            created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
+            updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
+            author_login=data["user"]["login"]
+        )
+
 class PullRequest(Base):
     __tablename__ = "pull_requests"
 
-    number = Column(Integer, primary_key=True)
-    repository_id = Column(Integer, ForeignKey("repositories.id"), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    number = Column(Integer)
+    repository_id = Column(Integer, ForeignKey("repositories.id"))
     title = Column(String)
-    body = Column(String, nullable=True)
     state = Column(String)
     created_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True))
@@ -112,7 +132,6 @@ class PullRequest(Base):
             number=data["number"],
             repository_id=repository_id,
             title=data["title"],
-            body=data.get("body"),
             state=data["state"],
             created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
@@ -122,4 +141,39 @@ class PullRequest(Base):
             base_branch=data["base"]["ref"],
             head_branch=data["head"]["ref"],
             is_merged=data.get("merged", False)
+        )
+
+class PullRequestComment(Base):
+    __tablename__ = "pull_request_comments"
+
+    id = Column(Integer, primary_key=True)
+    pull_request_id = Column(Integer, ForeignKey("pull_requests.id"))
+    body = Column(String)
+    created_at = Column(DateTime(timezone=True))
+    updated_at = Column(DateTime(timezone=True))
+    author_login = Column(String)
+    is_initial = Column(Boolean, default=False)  # True for the PR description/body
+
+    @classmethod
+    def from_github_data(cls, data: dict, pull_request_id: int, is_initial: bool = False):
+        if is_initial:
+            # Handle PR body as first comment
+            return cls(
+                id=data["id"],
+                pull_request_id=pull_request_id,
+                body=data.get("body", ""),
+                created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
+                updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
+                author_login=data["user"]["login"],
+                is_initial=True
+            )
+        # Handle regular PR comment
+        return cls(
+            id=data["id"],
+            pull_request_id=pull_request_id,
+            body=data["body"],
+            created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
+            updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
+            author_login=data["user"]["login"],
+            is_initial=False
         )
