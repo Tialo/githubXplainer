@@ -1,9 +1,15 @@
+import traceback
+import logging
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.repository_service import repository_service
 from backend.config.settings import get_session
 from backend.db.database import init_db
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GitHub Xplainer")
 
@@ -17,7 +23,8 @@ class RepositoryInit(BaseModel):
     repo: str
 
 class RepositoryResponse(BaseModel):
-    full_name: str
+    owner: str
+    name: str
     commits_processed: int
     issues_processed: int
     prs_processed: int
@@ -36,11 +43,21 @@ async def initialize_repository(
         )
         
         return RepositoryResponse(
-            full_name=repository.full_name,
+            owner=repository.owner,
+            name=repository.name,
             commits_processed=commits_count,
             issues_processed=issues_count,
             prs_processed=prs_count,
             message="Repository initialization completed successfully"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_detail = {
+            "type": type(e).__name__,
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
+        logger.error(f"Error processing repository: {error_detail}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail
+        )

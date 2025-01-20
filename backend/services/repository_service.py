@@ -10,7 +10,7 @@ from backend.db.database import (
 class RepositoryService:
     def __init__(self):
         self.github = GitHubService()
-        self.max_items = 30  # Limit items per entity type to avoid rate limits
+        self.max_items = 20  # Limit items per entity type to avoid rate limits
         self.max_comments = 10  # Limit comments per issue/PR
 
     async def initialize_repository(self, session: AsyncSession, owner: str, repo: str) -> Tuple[Repository, int, int, int]:
