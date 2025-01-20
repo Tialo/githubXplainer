@@ -67,6 +67,7 @@ class Issue(Base):
     number = Column(Integer)
     repository_id = Column(Integer, ForeignKey("repositories.id"))
     title = Column(String)
+    body = Column(String, nullable=True)
     state = Column(String)
     created_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True))
@@ -81,6 +82,7 @@ class Issue(Base):
             number=data["number"],
             repository_id=repository_id,
             title=data["title"],
+            body=data.get("body"),
             state=data["state"],
             created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
@@ -116,6 +118,7 @@ class PullRequest(Base):
     number = Column(Integer)
     repository_id = Column(Integer, ForeignKey("repositories.id"))
     title = Column(String)
+    body = Column(String, nullable=True)
     state = Column(String)
     created_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True))
@@ -134,6 +137,7 @@ class PullRequest(Base):
             number=data["number"],
             repository_id=repository_id,
             title=data["title"],
+            body=data.get("body"),
             state=data["state"],
             created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
