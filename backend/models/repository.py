@@ -20,7 +20,6 @@ class Repository(Base):
     def from_github_data(cls, data: dict):
         owner, name = data["full_name"].split("/")
         return cls(
-            github_id=data["id"],
             owner=owner,
             name=name,
             description=data.get("description"),
