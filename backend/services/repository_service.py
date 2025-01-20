@@ -1,10 +1,10 @@
 from typing import Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.github_service import GitHubService
-from backend.models.repository import Repository, Commit, Issue, IssueComment, PullRequest, PullRequestComment
+from backend.models.repository import Repository, Commit, Issue, IssueComment, PullRequest, PullRequestComment, CommitDiff
 from backend.db.database import (
     save_repository, save_commit, save_issue, save_pull_request,
-    save_issue_comment, save_pr_comment
+    save_issue_comment, save_pr_comment, save_commit_diff
 )
 
 class RepositoryService:
@@ -12,6 +12,7 @@ class RepositoryService:
         self.github = GitHubService()
         self.max_items = 20  # Limit items per entity type to avoid rate limits
         self.max_comments = 10  # Limit comments per issue/PR
+        self.max_files_per_commit = 20  # Limit number of files per commit
 
     async def initialize_repository(self, session: AsyncSession, owner: str, repo: str) -> Tuple[Repository, int, int, int]:
         async with session.begin():
@@ -26,6 +27,18 @@ class RepositoryService:
             for commit_data in commits_data:
                 commit = Commit.from_github_data(commit_data, repository.id)
                 await save_commit(session, commit)
+                
+                # Fetch and save commit diffs
+                commit_detail = await self.github.get_commit(owner, repo, commit_data["sha"])
+                if "files" in commit_detail:
+                    for file_diff in commit_detail["files"][:self.max_files_per_commit]:
+                        diff = CommitDiff.from_github_data(
+                            commit_hash=commit_data["sha"],
+                            file_diff=file_diff,
+                            repository_id=repository.id
+                        )
+                        await save_commit_diff(session, diff)
+                
                 commits_count += 1
 
             # Fetch and save issues with comments

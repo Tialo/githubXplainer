@@ -70,3 +70,9 @@ class GitHubService:
         return await self._make_request(
             f"repos/{owner}/{repo}/pulls/{pr_number}/comments"
         )
+        
+    async def get_commit(self, owner: str, repo: str, commit_sha: str) -> dict:
+        """Fetch detailed information about a specific commit."""
+        return await self._make_request(
+            f"repos/{owner}/{repo}/commits/{commit_sha}"
+        )

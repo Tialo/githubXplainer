@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import BigInteger, Integer, String, Boolean, DateTime, ForeignKey, Column
+from sqlalchemy import BigInteger, Integer, String, Boolean, DateTime, ForeignKey, Column, Text
 from backend.models.base import Base
 
 class Repository(Base):
@@ -58,6 +58,29 @@ class Commit(Base):
             committer_email=commit["committer"]["email"],
             committed_date=datetime.fromisoformat(commit["committer"]["date"].rstrip('Z')).replace(tzinfo=timezone.utc),
             repository_id=repository_id
+        )
+
+class CommitDiff(Base):
+    __tablename__ = "commit_diffs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    commit_hash = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    diff_content = Column(Text)  # PostgreSQL Text type for large content
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    
+    # Foreign key relationships
+    repository_id = Column(Integer, ForeignKey("repositories.id"))
+    pull_request_id = Column(Integer, ForeignKey("pull_requests.id"), nullable=True)
+
+    @classmethod
+    def from_github_data(cls, commit_hash: str, file_diff: dict, repository_id: int, pull_request_id: int = None):
+        return cls(
+            commit_hash=commit_hash,
+            file_path=file_diff["filename"],
+            diff_content=file_diff["patch"] if "patch" in file_diff else None,
+            repository_id=repository_id,
+            pull_request_id=pull_request_id
         )
 
 class Issue(Base):

@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.models.repository import Repository, Commit, Issue, PullRequest, IssueComment, PullRequestComment
+from backend.models.repository import Repository, Commit, Issue, PullRequest, IssueComment, PullRequestComment, CommitDiff
 from backend.models.base import Base
 from sqlalchemy.ext.asyncio import create_async_engine
 from backend.config.settings import settings
@@ -33,6 +33,10 @@ async def save_issue_comment(session: AsyncSession, comment: IssueComment) -> Is
 async def save_pr_comment(session: AsyncSession, comment: PullRequestComment) -> PullRequestComment:
     session.add(comment)
     return comment
+
+async def save_commit_diff(session: AsyncSession, diff: CommitDiff) -> CommitDiff:
+    session.add(diff)
+    return diff
 
 async def init_db():
     """Initialize the database by creating all tables."""
