@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.models.repository import Repository, Commit, Issue, PullRequest
+from backend.models.repository import Repository, Commit, Issue, PullRequest, IssueComment, PullRequestComment
 from backend.models.base import Base
 from sqlalchemy.ext.asyncio import create_async_engine
 from backend.config.settings import settings
@@ -20,6 +20,14 @@ async def save_issue(session: AsyncSession, issue: Issue) -> None:
 async def save_pull_request(session: AsyncSession, pr: PullRequest) -> None:
     async with session.begin():
         await session.merge(pr)
+
+async def save_issue_comment(session: AsyncSession, comment: IssueComment) -> None:
+    async with session.begin():
+        await session.merge(comment)
+
+async def save_pr_comment(session: AsyncSession, comment: PullRequestComment) -> None:
+    async with session.begin():
+        await session.merge(comment)
 
 async def init_db():
     """Initialize the database by creating all tables."""

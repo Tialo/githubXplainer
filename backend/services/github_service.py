@@ -55,3 +55,15 @@ class GitHubService:
             f"repos/{owner}/{repo}/pulls",
             params={"page": page, "per_page": per_page, "state": "all"}
         )
+
+    async def get_issue_comments(self, owner: str, repo: str, issue_number: int) -> List[Dict]:
+        """Fetch comments for an issue."""
+        return await self._make_request(
+            f"repos/{owner}/{repo}/issues/{issue_number}/comments"
+        )
+
+    async def get_pull_request_comments(self, owner: str, repo: str, pr_number: int) -> List[Dict]:
+        """Fetch comments for a pull request."""
+        return await self._make_request(
+            f"repos/{owner}/{repo}/pulls/{pr_number}/comments"
+        )
