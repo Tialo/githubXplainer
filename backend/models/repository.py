@@ -6,7 +6,8 @@ class Repository(Base):
     __tablename__ = "repositories"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    full_name = Column(String)
+    owner = Column(String)
+    name = Column(String)
     description = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True))
@@ -17,9 +18,11 @@ class Repository(Base):
 
     @classmethod
     def from_github_data(cls, data: dict):
+        owner, name = data["full_name"].split("/")
         return cls(
             github_id=data["id"],
-            full_name=data["full_name"],
+            owner=owner,
+            name=name,
             description=data.get("description"),
             created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
