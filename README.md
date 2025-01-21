@@ -16,13 +16,13 @@ pip install -r requirements.txt
 
 2. **Start Services**
 ```bash
-# Start database and elasticsearch
-docker-compose up -d postgres elasticsearch
+# Start infrastructure services
+docker-compose up -d postgres elasticsearch redis
 
-# Check Elasticsearch health
-curl http://localhost:9200/_cluster/health
+# Start Celery worker (in a separate terminal)
+celery -A backend.tasks.worker worker --loglevel=info
 
-# Start API server
+# Start API server (in another separate terminal)
 uvicorn backend.api.app:app --reload
 ```
 
@@ -71,6 +71,7 @@ poetry run pytest
 - **Database issues**: Check `docker-compose ps` and database credentials
 - **GitHub API**: Verify token in `.env` and rate limits
 - **Service errors**: Check `logs/app.log` for details
+- **Celery worker**: Verify Redis connection and check celery logs with `celery -A backend.tasks.worker worker --loglevel=debug`
 
 ## API Documentation
 
