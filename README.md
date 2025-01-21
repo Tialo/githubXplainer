@@ -20,7 +20,7 @@ pip install -r requirements.txt
 docker-compose up -d postgres elasticsearch redis flower
 
 # Start Celery worker (in a separate terminal)
-celery -A backend.tasks.worker worker --loglevel=info
+celery -A backend.tasks.worker.celery_app worker -Q summarization --concurrency=1 --loglevel=info
 
 # Start API server (in another separate terminal)
 uvicorn backend.api.app:app --reload
