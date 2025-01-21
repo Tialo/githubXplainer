@@ -1,10 +1,10 @@
-from typing import Optional
+from typing import Optional, Dict, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue
+from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue, RepositoryLanguage
 from backend.models.base import Base
 from sqlalchemy.ext.asyncio import create_async_engine
 from backend.config.settings import settings
-from sqlalchemy import select, func, and_, exists, alias
+from sqlalchemy import select, func, and_, exists, alias, text
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -174,6 +174,31 @@ async def get_repository_by_owner_and_name(session: AsyncSession, owner: str, na
     )
     return result.scalar_one_or_none()
 
+async def save_repository_languages(
+    session: AsyncSession, 
+    repository_id: int, 
+    languages: Dict[str, int]
+) -> List[RepositoryLanguage]:
+    """Save repository languages to the database."""
+    # Delete existing languages for this repository
+    await session.execute(
+        text("DELETE FROM repository_languages WHERE repository_id = :repo_id"),
+        {"repo_id": repository_id}
+    )
+    
+    # Create new language entries
+    lang_objects = []
+    for lang, bytes_count in languages.items():
+        lang_obj = RepositoryLanguage(
+            repository_id=repository_id,
+            language=lang,
+            bytes_count=bytes_count
+        )
+        session.add(lang_obj)
+        lang_objects.append(lang_obj)
+    
+    await session.flush()
+    return lang_objects
 
 if __name__ == "__main__":
     import asyncio

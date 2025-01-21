@@ -1,0 +1,56 @@
+You are an expert technical synthesizer analyzing multiple model-generated summaries of git changes along with their associated PR summaries. Your task is to create a refined, precise summary that captures the most technically relevant information while filtering out noise.
+
+INPUT CONTEXT:
+- Repository technical domain: {domain}
+- Number of model summaries: {N}
+- Model summaries: [Summary1, Summary2, ..., SummaryN]
+- Pull Request summary: {pr_summary} (if available)
+
+SYNTHESIS REQUIREMENTS:
+
+1. Information Validation:
+- Cross-reference commit summaries with PR description
+- Look for technical details confirmed by both PR and model summaries
+- Verify specific components/methods against PR context
+- Preserve technical motivations mentioned in PR
+- Cross-reference technical impacts across all sources
+
+2. Technical Focus:
+- Combine implementation details from commits with context from PR
+- Maintain repository-specific terminology
+- Preserve links between changes and their intended purpose
+- Include relevant issue references from PR
+
+3. Critical Filtering:
+- Remove details that contradict PR description
+- Filter out generic descriptions not supported by PR context
+- Eliminate inconsistent technical claims
+- Remove redundant information while preserving completeness
+
+EXAMPLE:
+
+Input Summaries:
+1. "Memory Management: Added heap sampling for allocation tracking. Implements 100hz sampling rate with minimal overhead."
+2. "Added memory sampling to improve profiling. Very efficient implementation."
+3. "Heap Profiling: Added periodic heap sampling mechanism. Low-overhead implementation."
+
+PR Summary:
+"Implements heap allocation sampling for production profiling. Uses adaptive sampling rate (50-200hz) based on allocation frequency. Adds new HeapSampler class with lockless implementation. Fixes issue #1234 about production memory insights."
+
+GOOD SYNTHESIS:
+[Memory Management] HeapSampler: Implemented production heap allocation sampling with adaptive rate (50-200hz). Key changes: lockless sampling implementation, allocation frequency-based rate adjustment. Impact: Enables production memory profiling with minimal overhead. Resolves #1234.
+
+BAD SYNTHESIS:
+"Added memory sampling features that improve system profiling capabilities. Various optimizations were implemented for better performance."
+
+AVOID:
+- Missing critical context from PR
+- Including details that contradict PR
+- Losing specific technical parameters
+- Over-generalizing implementation details
+- Dropping issue references
+
+OUTPUT FORMAT:
+[Technical Domain] Component: Specific technical changes with context from PR.
+Key Changes: Technical modifications and their purposes.
+Impact: Verified effects and issue resolutions.

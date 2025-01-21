@@ -10,7 +10,7 @@ from backend.db.database import (
     get_last_issue_with_null_parent, get_issue_by_number,
     get_repository_by_owner_and_name, update_repository_attributes,
     update_commit_attributes, get_deleted_issue_by_number,
-    save_deleted_issue
+    save_deleted_issue, save_repository_languages
 )
 from backend.tasks.summary_tasks import generate_commit_summary_task
 
@@ -98,7 +98,23 @@ class RepositoryService:
     async def _initialize_repository(self, session: AsyncSession, repository: Repository) -> Tuple[Repository, int, int]:
         owner, repo = repository.owner, repository.name
 
-        # Fetch and save commits (limited to max_items)
+        # Fetch languages
+        languages = await self.github.get_languages(owner, repo)
+        await save_repository_languages(session, repository.id, languages)
+
+        # Fetch README
+        readme_data = await self.github.get_readme(owner, repo)
+        if readme_data:
+            import base64
+            readme_content = base64.b64decode(readme_data["content"]).decode("utf-8")
+            repository = await update_repository_attributes(
+                session,
+                repository.id,
+                readme_content=readme_content,
+                readme_path=readme_data["path"]
+            )
+
+        # Continue with existing initialization
         commits_data = await self.github.get_commits(
             owner, repo, page=1, per_page=self.max_items
         )
@@ -146,6 +162,22 @@ class RepositoryService:
 
             if not repository.is_initialized:
                 return await self._initialize_repository(session, repository)
+
+            # Update languages
+            languages = await self.github.get_languages(owner, repo)
+            await save_repository_languages(session, repository.id, languages)
+
+            # Update README
+            readme_data = await self.github.get_readme(owner, repo)
+            if readme_data:
+                import base64
+                readme_content = base64.b64decode(readme_data["content"]).decode("utf-8")
+                repository = await update_repository_attributes(
+                    session,
+                    repository.id,
+                    readme_content=readme_content,
+                    readme_path=readme_data["path"]
+                )
 
             # Fetch recent commits
             recent_commits = await self.github.get_commits(

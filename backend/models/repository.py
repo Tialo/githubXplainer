@@ -20,6 +20,15 @@ def _get_pr_number_from_title(title: str) -> int:
     return None
 
 
+class RepositoryLanguage(Base):
+    __tablename__ = "repository_languages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    repository_id = Column(Integer, ForeignKey("repositories.id"))
+    language = Column(String, nullable=False)
+    bytes_count = Column(Integer, nullable=False)
+
+
 class Repository(Base):
     __tablename__ = "repositories"
 
@@ -33,6 +42,8 @@ class Repository(Base):
     stars_count = Column(Integer)
     forks_count = Column(Integer)
     is_initialized = Column(Boolean, default=False)
+    readme_content = Column(Text, nullable=True)
+    readme_path = Column(String, nullable=True)
 
     @classmethod
     def from_github_data(cls, data: dict):
@@ -46,7 +57,9 @@ class Repository(Base):
             default_branch=data["default_branch"],
             stars_count=data["stargazers_count"],
             forks_count=data["forks_count"],
-            is_initialized=False
+            is_initialized=False,
+            readme_content=None,
+            readme_path=None
         )
 
 class Commit(Base):
