@@ -1,6 +1,6 @@
 from celery import shared_task
 from sqlalchemy.orm import Session
-from backend.db.database import SessionLocal, get_db
+from backend.db.database import SessionLocal
 from backend.services.summary_generator import save_commit_summary, get_commits_without_summaries
 from backend.utils.logger import get_logger
 from backend.models.repository import ReadmeSummary, Repository
@@ -50,7 +50,7 @@ def process_missing_summaries_task() -> int:
 
 @shared_task
 def generate_readme_summary_task(repository_id: int):
-    db: Session = next(get_db())
+    db = SessionLocal()
     try:
         repository = db.query(Repository).filter(Repository.id == repository_id).first()
         if not repository or not repository.readme_content:
