@@ -38,6 +38,11 @@ class ElasticsearchInitResponse(BaseModel):
     indices_initialized: int
     message: str
 
+class ElasticsearchClearResponse(BaseModel):
+    status: str
+    indices_cleared: dict
+    message: str
+
 class SearchQuery(BaseModel):
     repository_id: int
     query: str
@@ -126,6 +131,31 @@ async def initialize_elasticsearch(
             "traceback": traceback.format_exc()
         }
         logger.error(f"Error initializing Elasticsearch: {error_detail}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail
+        )
+
+@app.post("/elasticsearch/clear", response_model=ElasticsearchClearResponse)
+async def clear_elasticsearch():
+    """Clear all data from Elasticsearch indices."""
+    try:
+        es_client = await get_elasticsearch_client()
+        async with Searcher(es_client) as searcher:
+            results = await searcher.clear_all_indices()
+            
+            return ElasticsearchClearResponse(
+                status="success",
+                indices_cleared=results,
+                message="Successfully cleared all Elasticsearch indices"
+            )
+    except Exception as e:
+        error_detail = {
+            "type": type(e).__name__,
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
+        logger.error(f"Error clearing Elasticsearch indices: {error_detail}")
         raise HTTPException(
             status_code=500,
             detail=error_detail

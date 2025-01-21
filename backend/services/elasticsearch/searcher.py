@@ -5,7 +5,7 @@ from backend.services.elasticsearch.index_manager import IndexManager
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import logging
-from backend.models.repository import CommitDiff, Issue
+from backend.models.repository import CommitDiff, Issue, Commit
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -190,12 +190,11 @@ class Searcher:
     async def initialize_elasticsearch(self, db_session: AsyncSession) -> None:
         """Initialize Elasticsearch indices with data from PostgreSQL."""
         try:
-            # First ensure indices exist
             await self.index_manager.ensure_indices()
             
             # Initialize commits
             async def commit_generator():
-                query = select(CommitDiff)
+                query = select(Commit)
                 result = await db_session.execute(query)
                 commits = result.scalars().all()
                 
@@ -203,12 +202,30 @@ class Searcher:
                     yield {
                         "_index": self.index_manager.get_index_name('commits'),
                         "_source": {
-                            "commit_hash": commit.commit_hash,
-                            "message": commit.diff_content,
+                            "commit_hash": commit.github_sha,
+                            "message": commit.message,
                             "metadata": {
                                 "repository_id": commit.repository_id,
-                                "file_path": commit.file_path,
-                                "date": commit.created_at.isoformat()
+                                "date": commit.committed_date.isoformat()
+                            }
+                        }
+                    }
+
+            async def commit_diff_generator():
+                query = select(CommitDiff).join(Commit)
+                result = await db_session.execute(query)
+                commit_diffs = result.scalars().all()
+                
+                for diff in commit_diffs:
+                    yield {
+                        "_index": self.index_manager.get_index_name('commits'),
+                        "_source": {
+                            "commit_hash": diff.commit.github_sha,
+                            "message": diff.diff_content,
+                            "metadata": {
+                                "repository_id": diff.commit.repository_id,
+                                "file_path": diff.file_path,
+                                "date": diff.commit.committed_date.isoformat()
                             }
                         }
                     }
@@ -236,7 +253,7 @@ class Searcher:
                     }
 
             # Bulk index the data
-            for generator in [commit_generator(), issue_generator()]:
+            for generator in [commit_generator(), commit_diff_generator(), issue_generator()]:
                 await async_bulk(self.client, generator)
             
             logger.info("Successfully initialized Elasticsearch indices with PostgreSQL data")
