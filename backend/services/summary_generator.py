@@ -1,6 +1,7 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from backend.models.repository import Commit, CommitDiff, Issue
+from .llm_summarizer import LLMSummarizer
 
 def get_commit_data(db: Session, commit_id: int) -> tuple[Commit, List[CommitDiff], Optional[Issue]]:
     """
@@ -43,9 +44,10 @@ def generate_commit_summary(commit_id: int, db: Session) -> str:
     """
     commit, diffs, pr = get_commit_data(db, commit_id)
     
-    # TODO: Implement actual summary generation logic
-    # This is a placeholder that returns a basic summary
-    return f"Summary of commit {commit.github_sha[:8]}: {commit.message}"
+    summarizer = LLMSummarizer()
+    summary = summarizer.summarize_commit(diffs)
+    
+    return f"Summary of commit {commit.github_sha[:8]}: {summary}"
 
 def save_commit_summary(db: Session, commit_id: int) -> None:
     """
