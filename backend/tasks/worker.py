@@ -1,10 +1,11 @@
 import os
+from backend.config.settings import get_settings
 from celery import Celery
 
 # Initialize Celery app
 celery_app = Celery(
     'githubxplainer',
-    broker=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
+    broker=get_settings().celery_broker_url,
     include=['backend.tasks.summary_tasks']
 )
 
@@ -24,5 +25,6 @@ celery_app.conf.update(
         'backend.tasks.summary_tasks.*': {
             'rate_limit': '1/s'  # Specific rate limit for summarization tasks
         }
-    }
+    },
+    broker_connection_retry_on_startup=True  # Add this for RabbitMQ connection stability
 )

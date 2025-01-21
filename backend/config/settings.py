@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     repository_update_interval: int = 5
     use_scheduler: bool = False
 
+    celery_broker_url: str = "amqp://developer:devpassword@localhost:5672//"
+
     class Config:
         env_file = ".env"
 
