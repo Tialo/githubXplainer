@@ -69,7 +69,7 @@ curl -X POST http://localhost:8000/search/type/commits \
   "repository_id": 1,
   "query": "fix bug",
   "from_date": "2024-01-01T00:00:00Z",
-  "size": 5
+  "size": 2
 }'
 ```
 

@@ -68,11 +68,6 @@ class SearchResult(BaseModel):
     created_at: datetime
     score: float
 
-class SearchResponse(BaseModel):
-    total: int
-    took: float
-    results: List[SearchResult]
-
 class SimilaritySearchResponse(BaseModel):
     total: int
     took: float
@@ -161,7 +156,7 @@ async def clear_elasticsearch():
             detail=error_detail
         )
 
-@app.post("/search/all", response_model=SearchResponse)
+@app.post("/search/all")
 async def search_all_content(query: SearchQuery):
     """Search across commits, issues, and pull requests."""
     try:
@@ -178,7 +173,7 @@ async def search_all_content(query: SearchQuery):
         logger.error(f"Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/search/type/{content_type}", response_model=SearchResponse)
+@app.post("/search/type/{content_type}")
 async def search_content(
     content_type: str,
     query: ContentSearchQuery
