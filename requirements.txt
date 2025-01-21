@@ -15,3 +15,12 @@ python-dotenv==1.0.0
 sqlalchemy[asyncio]==2.0.23
 sqlmodel==0.0.14  # Updated version
 greenlet==3.0.1  # required for async SQLAlchemy
+
+# Elasticsearch
+elasticsearch[async]>=8.11.1
+
+# Celery
+celery>=5.3.1
+
+# Testing
+pytest-asyncio>=0.23.1
