@@ -113,7 +113,6 @@ class Searcher:
         query: str,
         repository_id: int,
         state: Optional[str] = None,
-        base_branch: Optional[str] = None,
         from_date: Optional[datetime] = None,
         size: int = 10
     ) -> List[Dict[str, Any]]:
@@ -232,7 +231,6 @@ class Searcher:
                                 "created_at": issue.created_at.isoformat(),
                                 "labels": issue.labels,
                                 "is_pull_request": issue.is_pull_request,
-                                "base_branch": issue.base_branch if issue.is_pull_request else None
                             }
                         }
                     }

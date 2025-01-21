@@ -42,7 +42,7 @@ class IndexManager:
             }
         }
 
-        for index in ['commits', 'issues', 'pull_requests']:
+        for index in ['commits', 'issues']:
             index_name = self.get_index_name(index)
             if not await self.client.indices.exists(index=index_name):
                 try:
@@ -72,7 +72,7 @@ class IndexManager:
         """Update aliases for all indices."""
         try:
             actions = []
-            for index in ['commits', 'issues', 'pull_requests']:
+            for index in ['commits', 'issues']:
                 index_name = self.get_index_name(index)
                 alias_name = f"{self.settings.index_prefix}_{index}_alias"
                 
@@ -104,7 +104,7 @@ class IndexManager:
     async def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics for all indices."""
         try:
-            indices = [self.get_index_name(name) for name in ['commits', 'issues', 'pull_requests']]
+            indices = [self.get_index_name(name) for name in ['commits', 'issues']]
             stats = await self.client.indices.stats(index=indices)
             return stats
         except Exception as e:
@@ -114,6 +114,6 @@ class IndexManager:
     async def delete_indices(self):
         indices = [
             self.get_index_name(name) 
-            for name in ['commits', 'issues', 'pull_requests']
+            for name in ['commits', 'issues']
         ]
         await self.client.indices.delete(index=indices, ignore=[404])
