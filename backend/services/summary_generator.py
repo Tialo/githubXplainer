@@ -9,9 +9,10 @@ from .commit_summarizer import LLMSummarizer
 def get_commit_data(
     db: Session, 
     commit_id: int
-) -> tuple[Commit, List[CommitDiff], Optional[Issue], List[RepositoryLanguage], Optional[ReadmeSummary]]:
+) -> tuple[Commit, List[CommitDiff], Optional[Issue], List[RepositoryLanguage], Optional[ReadmeSummary], str]:
     """
     Retrieve commit data with related diffs, PR information, repository languages and readme summary
+    Returns tuple: (commit, diffs, pr, languages, readme_summary, repo_path)
     """
     commit = db.query(Commit).filter(Commit.id == commit_id).first()
     if not commit:
@@ -39,7 +40,10 @@ def get_commit_data(
         ReadmeSummary.repository_id == commit.repository_id
     ).first()
     
-    return commit, diffs, pr, languages, readme_summary
+    # Get repository path
+    repo_path = f"{commit.repository.owner}/{commit.repository.name}"
+    
+    return commit, diffs, pr, languages, readme_summary, repo_path
 
 def get_commits_without_summaries(db: Session) -> List[int]:
     """
@@ -58,13 +62,14 @@ def generate_commit_summary(commit_id: int, db: Session) -> str:
     """
     Generate a summary for a commit based on its data, diffs, PR, and repository context
     """
-    commit, diffs, pr, languages, readme_summary = get_commit_data(db, commit_id)
+    commit, diffs, pr, languages, readme_summary, repo_path = get_commit_data(db, commit_id)
     
     summarizer = LLMSummarizer()
     summary = summarizer.summarize_commit(
         diffs=diffs,
         languages=languages,
-        readme_summary=readme_summary
+        readme_summary=readme_summary,
+        repo_path=repo_path
     )
     
     return f"Summary of commit {commit.github_sha[:8]}: {summary}"

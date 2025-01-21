@@ -13,6 +13,7 @@ class CommitDiffGroup:
 class RepositoryContext:
     languages: List[RepositoryLanguage]
     readme_summary: Optional[ReadmeSummary]
+    repo_path: str
 
     def get_languages_str(self) -> str:
         if not self.languages:
@@ -71,15 +72,15 @@ class LLMSummarizer:
         # Remove content between <think> tags
         return re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL).strip()
 
-    def set_repository_context(self, languages: List[RepositoryLanguage], readme_summary: Optional[ReadmeSummary]) -> None:
-        self.repo_context = RepositoryContext(languages=languages, readme_summary=readme_summary)
+    def set_repository_context(self, languages: List[RepositoryLanguage], readme_summary: Optional[ReadmeSummary], repo_path: str) -> None:
+        self.repo_context = RepositoryContext(languages=languages, readme_summary=readme_summary, repo_path=repo_path)
 
     def process_group(self, diff_group: CommitDiffGroup) -> str:
         with open('backend/prompts/diff_summarizer.txt', 'r') as f:
             prompt_template = f.read()
 
         system_prompt = prompt_template.format(
-            repo_name="",
+            repo_name=self.repo_context.repo_path,
             languages=self.repo_context.get_languages_str() if self.repo_context else "",
             description=self.repo_context.get_description_str() if self.repo_context else "",
         )
@@ -106,7 +107,7 @@ class LLMSummarizer:
             prompt_template = f.read()
 
         system_prompt = prompt_template.format(
-            repo_name="",
+            repo_name=self.repo_context.repo_path,
             languages=self.repo_context.get_languages_str() if self.repo_context else "",
             description=self.repo_context.get_description_str() if self.repo_context else "",
         )
@@ -127,9 +128,8 @@ class LLMSummarizer:
         )
         return self.clean_summary(response.message.content)
 
-    def summarize_commit(self, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None) -> str:
-        if languages is not None and readme_summary is not None:
-            self.set_repository_context(languages, readme_summary)
+    def summarize_commit(self, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repo_path: str = "") -> str:
+        self.set_repository_context(languages, readme_summary, repo_path)
         
         filtered_diffs = self.filter_diffs(diffs)
         diff_groups = self.batch_diffs(filtered_diffs)
