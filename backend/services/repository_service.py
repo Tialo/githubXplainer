@@ -1,14 +1,15 @@
 from typing import Tuple, Optional, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.github_service import GitHubService
-from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff
+from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue
 from backend.db.database import (
     save_repository, save_commit, save_issue,
     save_issue_comment, save_commit_diff,
     get_last_commit_with_null_parent, get_commit_by_sha,
     get_last_issue_with_null_parent, get_issue_by_number,
     get_repository_by_owner_and_name, update_repository_attributes,
-    update_commit_attributes,
+    update_commit_attributes, get_deleted_issue_by_number,
+    save_deleted_issue
 )
 
 class RepositoryService:
@@ -170,7 +171,8 @@ class RepositoryService:
             recent_orphan_issue = await get_last_issue_with_null_parent(session, repository.id)
             if recent_orphan_issue:
                 # Fetch issues before orphan issue
-                for i in range(1, self.update_fetch_items + 1):
+                for i in range(1, min(self.update_fetch_items + 1, recent_orphan_issue.number)):
+                    # use min to avoid fetching issues with not positive numbers
                     before_issue = await get_issue_by_number(session, recent_orphan_issue.number - i, repository.id)
                     if before_issue:
                         continue
@@ -180,6 +182,21 @@ class RepositoryService:
                     if before_issue:
                         await self._process_issue(session, before_issue, repository)
                         issues_count += 1
+                        continue
+                    
+                    # if issue wasn't found on GitHub, then it was deleted by repository owner
+                    deleted_issue = await get_deleted_issue_by_number(
+                        session, recent_orphan_issue.number - i, repository.id
+                    )
+                    if deleted_issue:
+                        issues_count += 1
+                    else:
+                        await save_deleted_issue(
+                            session, DeletedIssue(
+                                number=recent_orphan_issue.number - i,
+                                repository_id=repository.id
+                            )
+                        )
 
             return repository, commits_count, issues_count
 
