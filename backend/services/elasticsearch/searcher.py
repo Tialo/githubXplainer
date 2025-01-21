@@ -67,7 +67,8 @@ class Searcher:
         state: Optional[str] = None,
         labels: Optional[List[str]] = None,
         from_date: Optional[datetime] = None,
-        size: int = 10
+        size: int = 10,
+        include_prs: bool = False
     ) -> List[Dict[str, Any]]:
         must_conditions = [
             {
@@ -76,7 +77,8 @@ class Searcher:
                     "fields": ["title^3", "body^2", "comments.content"]
                 }
             },
-            {"term": {"metadata.repository_id": repository_id}}
+            {"term": {"metadata.repository_id": repository_id}},
+            {"term": {"metadata.is_pull_request": include_prs}}
         ]
 
         if state:
@@ -115,42 +117,15 @@ class Searcher:
         from_date: Optional[datetime] = None,
         size: int = 10
     ) -> List[Dict[str, Any]]:
-        must_conditions = [
-            {
-                "multi_match": {
-                    "query": query,
-                    "fields": ["title^3", "description^2", "reviews.comment"]
-                }
-            },
-            {"term": {"metadata.repository_id": repository_id}}
-        ]
-
-        if state:
-            must_conditions.append({"term": {"metadata.state": state}})
-        if base_branch:
-            must_conditions.append({"term": {"metadata.base_branch": base_branch}})
-        if from_date:
-            must_conditions.append({
-                "range": {
-                    "metadata.created_at": {"gte": from_date.isoformat()}
-                }
-            })
-
-        body = {
-            "query": {"bool": {"must": must_conditions}},
-            "size": size,
-            "sort": [{"metadata.created_at": "desc"}]
-        }
-
-        try:
-            response = await self.client.search(
-                index=self.index_manager.get_index_name('pull_requests'),
-                body=body
-            )
-            return [hit["_source"] for hit in response["hits"]["hits"]]
-        except Exception as e:
-            logger.error(f"Error searching pull requests: {e}")
-            raise
+        # Reuse issues search with PR filter
+        return await self.search_issues(
+            query=query,
+            repository_id=repository_id,
+            state=state,
+            from_date=from_date,
+            size=size,
+            include_prs=True  # Force PR-only results
+        )
 
     async def search_all(
         self,
@@ -163,8 +138,8 @@ class Searcher:
         try:
             results = await asyncio.gather(
                 self.search_commits(query, repository_id, from_date, size),
-                self.search_issues(query, repository_id, from_date=from_date, size=size),
-                self.search_pull_requests(query, repository_id, from_date=from_date, size=size)
+                self.search_issues(query, repository_id, from_date=from_date, size=size, include_prs=False),
+                self.search_issues(query, repository_id, from_date=from_date, size=size, include_prs=True)  # Get PRs
             )
             
             return {
@@ -239,7 +214,7 @@ class Searcher:
                         }
                     }
 
-            # Initialize issues
+            # Initialize issues and PRs together
             async def issue_generator():
                 query = select(Issue)
                 result = await db_session.execute(query)
@@ -255,34 +230,15 @@ class Searcher:
                                 "repository_id": issue.repository_id,
                                 "state": issue.state,
                                 "created_at": issue.created_at.isoformat(),
-                                "labels": issue.labels
-                            }
-                        }
-                    }
-
-            # Initialize pull requests
-            async def pr_generator():
-                query = select(PullRequest)
-                result = await db_session.execute(query)
-                prs = result.scalars().all()
-                
-                for pr in prs:
-                    yield {
-                        "_index": self.index_manager.get_index_name('pull_requests'),
-                        "_source": {
-                            "title": pr.title,
-                            "description": pr.body,  # Changed from pr.description to pr.body
-                            "metadata": {
-                                "repository_id": pr.repository_id,
-                                "state": pr.state,
-                                "base_branch": pr.base_branch,
-                                "created_at": pr.created_at.isoformat()
+                                "labels": issue.labels,
+                                "is_pull_request": issue.is_pull_request,
+                                "base_branch": issue.base_branch if issue.is_pull_request else None
                             }
                         }
                     }
 
             # Bulk index the data
-            for generator in [commit_generator(), issue_generator(), pr_generator()]:
+            for generator in [commit_generator(), issue_generator()]:
                 await async_bulk(self.client, generator)
             
             logger.info("Successfully initialized Elasticsearch indices with PostgreSQL data")
