@@ -17,7 +17,7 @@ pip install -r requirements.txt
 2. **Start Services**
 ```bash
 # Start infrastructure services
-docker-compose up -d postgres elasticsearch rabbitmq flower
+docker-compose up -d postgres elasticsearch rabbitmq
 
 # Start Huey worker (in a separate terminal)
 python -m backend.tasks.worker

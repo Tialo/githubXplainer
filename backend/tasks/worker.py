@@ -5,11 +5,6 @@ from huey import RedisHuey
 huey = RedisHuey(
     name='githubxplainer',
     url=os.environ.get('REDIS_URL', 'redis://localhost:6379'),
-    immediate=False,
-    results=True,
-    # Store locks for up to 1 hour
-    lock_timeout=3600,
-    max_workers=1  # Ensure single worker
 )
 
 if __name__ == '__main__':
