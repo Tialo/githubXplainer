@@ -39,7 +39,11 @@ curl -X POST http://localhost:8000/repos/init \
 ```
 
 ```bash
+# init
 curl -X POST http://localhost:8000/elasticsearch/init
+
+# drop
+curl -X POST http://localhost:8000/elasticsearch/clear
 ```
 
 ```bash

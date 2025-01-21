@@ -212,20 +212,24 @@ class Searcher:
                     }
 
             async def commit_diff_generator():
-                query = select(CommitDiff).join(Commit)
+                # Join CommitDiff with Commit and load both entities
+                query = (
+                    select(CommitDiff, Commit)
+                    .join(Commit, CommitDiff.commit_id == Commit.id)
+                )
                 result = await db_session.execute(query)
-                commit_diffs = result.scalars().all()
+                commit_diffs = result.all()
                 
-                for diff in commit_diffs:
+                for diff, commit in commit_diffs:
                     yield {
                         "_index": self.index_manager.get_index_name('commits'),
                         "_source": {
-                            "commit_hash": diff.commit.github_sha,
+                            "commit_hash": commit.github_sha,
                             "message": diff.diff_content,
                             "metadata": {
-                                "repository_id": diff.commit.repository_id,
+                                "repository_id": commit.repository_id,
                                 "file_path": diff.file_path,
-                                "date": diff.commit.committed_date.isoformat()
+                                "date": commit.committed_date.isoformat()
                             }
                         }
                     }
