@@ -23,5 +23,4 @@ celery_app.conf.update(
             'rate_limit': '1/s'  # Specific rate limit for summarization tasks
         }
     },
-    broker_connection_retry_on_startup=True  # Add this for RabbitMQ connection stability
 )
