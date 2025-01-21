@@ -17,7 +17,7 @@ pip install -r requirements.txt
 2. **Start Services**
 ```bash
 # Start infrastructure services
-docker-compose up -d postgres elasticsearch redis
+docker-compose up -d postgres elasticsearch redis flower
 
 # Start Celery worker (in a separate terminal)
 celery -A backend.tasks.worker worker --loglevel=info
@@ -76,3 +76,12 @@ poetry run pytest
 ## API Documentation
 
 Browse OpenAPI docs at http://localhost:8000/docs
+
+## Monitoring
+
+### Celery Monitoring
+Access the Flower dashboard at http://localhost:5555 to monitor:
+- Task progress and history
+- Worker status
+- Real-time statistics
+- Task graphs and metrics
