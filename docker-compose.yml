@@ -21,23 +21,27 @@ services:
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
 
-  redis:
-    image: redis:alpine
+  rabbitmq:
+    image: rabbitmq:3-management
     ports:
-      - "6379:6379"
+      - "5672:5672"
+      - "15672:15672"
     volumes:
-      - redis_data:/data
+      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=developer
+      - RABBITMQ_DEFAULT_PASS=devpassword
 
   flower:
     image: mher/flower
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=amqp://developer:devpassword@rabbitmq:5672//
     ports:
       - "5555:5555"
     depends_on:
-      - redis
+      - rabbitmq
 
 volumes:
   postgres_data:
   elasticsearch_data:
-  redis_data:
+  rabbitmq_data:
