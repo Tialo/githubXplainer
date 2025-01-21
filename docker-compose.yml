@@ -21,24 +21,14 @@ services:
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
 
-  rabbitmq:
-    image: rabbitmq
+  redis:
+    image: redis:7
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "6379:6379"
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-
-  flower:
-    image: mher/flower
-    environment:
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-    ports:
-      - "5555:5555"
-    depends_on:
-      - rabbitmq
+      - redis_data:/data
 
 volumes:
   postgres_data:
   elasticsearch_data:
-  rabbitmq_data:
+  redis_data:

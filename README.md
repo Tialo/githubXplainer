@@ -19,8 +19,8 @@ pip install -r requirements.txt
 # Start infrastructure services
 docker-compose up -d postgres elasticsearch rabbitmq flower
 
-# Start Celery worker (in a separate terminal)
-celery -A backend.tasks.worker.celery_app worker -Q summarization --concurrency=1 --loglevel=info
+# Start Huey worker (in a separate terminal)
+python -m backend.tasks.worker
 
 # Start API server (in another separate terminal)
 uvicorn backend.api.app:app --reload

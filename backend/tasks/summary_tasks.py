@@ -1,23 +1,19 @@
-from celery import shared_task
+from backend.tasks.worker import huey
 from sqlalchemy.orm import Session
 from backend.db.database import SessionLocal
 from backend.services.summary_generator import save_commit_summary, get_commits_without_summaries
 from backend.utils.logger import get_logger
 from backend.models.repository import ReadmeSummary, Repository
 from backend.services.readme_summarizer import ReadmeSummarizer
+from datetime import timedelta
 
 logger = get_logger(__name__)
 
-@shared_task(
-    name="generate_commit_summary",
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    max_retries=3
-)
+@huey.task(retries=3, retry_delay=timedelta(minutes=1))
 def generate_commit_summary_task(commit_id: int) -> None:
     """
-    Celery task to generate and save commit summary.
-    Includes automatic retry with exponential backoff on failure.
+    Huey task to generate and save commit summary.
+    Includes automatic retry with delay on failure.
     """
     logger.info(f"Generating summary for commit {commit_id}")
     db = SessionLocal()
@@ -26,21 +22,20 @@ def generate_commit_summary_task(commit_id: int) -> None:
         logger.info(f"Successfully generated summary for commit {commit_id}")
     except Exception as e:
         logger.error(f"Error generating summary for commit {commit_id}: {str(e)}")
-        raise  # This will trigger the retry mechanism
+        raise
     finally:
         db.close()
 
-@shared_task(name="process_missing_summaries")
+@huey.periodic_task(timedelta(minutes=10))
 def process_missing_summaries_task() -> int:
     """
-    Find commits without summaries and queue them for summary generation.
-    Returns the number of commits queued.
+    Periodic task to find commits without summaries and queue them.
     """
     db = SessionLocal()
     try:
         commit_ids = get_commits_without_summaries(db)
         for commit_id in commit_ids:
-            generate_commit_summary_task.delay(commit_id)
+            generate_commit_summary_task(commit_id)
         return len(commit_ids)
     except Exception as e:
         logger.error(f"Error processing missing summaries: {str(e)}")
@@ -48,7 +43,7 @@ def process_missing_summaries_task() -> int:
     finally:
         db.close()
 
-@shared_task
+@huey.task()
 def generate_readme_summary_task(repository_id: int):
     db = SessionLocal()
     try:
