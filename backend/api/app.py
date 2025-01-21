@@ -10,6 +10,10 @@ from backend.services.elasticsearch.searcher import Searcher
 from backend.config.elasticsearch import get_elasticsearch_client
 from typing import Optional, List
 from datetime import datetime
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from backend.config.settings import get_settings
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,10 +21,51 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GitHub Xplainer")
 
+# Add these variables after the app initialization
+scheduler = AsyncIOScheduler()
+
+async def periodic_repository_update():
+    """Periodically update repository data."""
+    try:
+        async for session in get_session():
+            # Get all initialized repositories from database
+            repositories = await repository_service.get_all_initialized_repositories(session)
+            for repo in repositories:
+                try:
+                    await repository_service.update_repository(
+                        session,
+                        repo.owner,
+                        repo.name
+                    )
+                    logger.info(f"Successfully updated repository {repo.owner}/{repo.name}")
+                    # Wait between repository updates
+                    await asyncio.sleep(get_settings().repository_update_delay * 60)
+                except Exception as e:
+                    logger.error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error in periodic update: {str(e)}")
+
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the database on app startup."""
+    """Initialize the database and scheduler on app startup."""
     await init_db()
+    
+    settings = get_settings()
+    if settings.use_scheduler:
+        # Add the periodic task with configurable interval
+        scheduler.add_job(
+            periodic_repository_update,
+            trigger=IntervalTrigger(minutes=settings.repository_update_interval),
+            id='repository_update',
+            name=f'Update repositories every {settings.repository_update_interval} minutes',
+            replace_existing=True
+        )
+        scheduler.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shut down the scheduler when the app stops."""
+    scheduler.shutdown()
 
 class RepositoryInit(BaseModel):
     owner: str

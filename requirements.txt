@@ -2,6 +2,7 @@
 fastapi==0.104.0
 uvicorn[standard]==0.23.2
 httpx==0.25.0
+apscheduler==3.8.0
 
 # Database
 asyncpg==0.28.0

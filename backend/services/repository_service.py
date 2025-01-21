@@ -1,4 +1,5 @@
 from typing import Tuple, Optional, List, Dict
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.github_service import GitHubService
 from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue
@@ -199,5 +200,17 @@ class RepositoryService:
                         )
 
             return repository, commits_count, issues_count
+
+    async def get_all_repositories(self, session: AsyncSession):
+        """Get all repositories from the database."""
+        result = await session.execute(select(Repository))
+        return result.scalars().all()
+
+    async def get_all_initialized_repositories(self, session: AsyncSession):
+        """Get all initialized repositories from the database."""
+        result = await session.execute(
+            select(Repository).where(Repository.is_initialized == True)
+        )
+        return result.scalars().all()
 
 repository_service = RepositoryService()

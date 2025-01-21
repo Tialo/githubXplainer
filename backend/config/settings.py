@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     debug: bool = True
 
+    # Scheduler settings
+    repository_update_interval: int = 5
+    repository_update_delay: int = 5
+    use_scheduler: bool = True
+
     class Config:
         env_file = ".env"
 
