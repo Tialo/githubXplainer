@@ -1,11 +1,17 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
-from backend.models.repository import Commit, CommitDiff, Issue
+from backend.models.repository import (
+    Commit, CommitDiff, Issue, RepositoryLanguage,
+    ReadmeSummary
+)
 from .llm_summarizer import LLMSummarizer
 
-def get_commit_data(db: Session, commit_id: int) -> tuple[Commit, List[CommitDiff], Optional[Issue]]:
+def get_commit_data(
+    db: Session, 
+    commit_id: int
+) -> tuple[Commit, List[CommitDiff], Optional[Issue], List[RepositoryLanguage], Optional[ReadmeSummary]]:
     """
-    Retrieve commit data with related diffs and PR information
+    Retrieve commit data with related diffs, PR information, repository languages and readme summary
     """
     commit = db.query(Commit).filter(Commit.id == commit_id).first()
     if not commit:
@@ -23,7 +29,17 @@ def get_commit_data(db: Session, commit_id: int) -> tuple[Commit, List[CommitDif
             Issue.is_pull_request == True
         ).first()
     
-    return commit, diffs, pr
+    # Get repository languages
+    languages = db.query(RepositoryLanguage).filter(
+        RepositoryLanguage.repository_id == commit.repository_id
+    ).all()
+    
+    # Get readme summary
+    readme_summary = db.query(ReadmeSummary).filter(
+        ReadmeSummary.repository_id == commit.repository_id
+    ).first()
+    
+    return commit, diffs, pr, languages, readme_summary
 
 def get_commits_without_summaries(db: Session) -> List[int]:
     """
@@ -40,12 +56,16 @@ def get_commits_without_summaries(db: Session) -> List[int]:
 
 def generate_commit_summary(commit_id: int, db: Session) -> str:
     """
-    Generate a summary for a commit based on its data, diffs, and related PR
+    Generate a summary for a commit based on its data, diffs, PR, and repository context
     """
-    commit, diffs, pr = get_commit_data(db, commit_id)
+    commit, diffs, pr, languages, readme_summary = get_commit_data(db, commit_id)
     
     summarizer = LLMSummarizer()
-    summary = summarizer.summarize_commit(diffs)
+    summary = summarizer.summarize_commit(
+        diffs=diffs,
+        languages=languages,
+        readme_summary=readme_summary
+    )
     
     return f"Summary of commit {commit.github_sha[:8]}: {summary}"
 

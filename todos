@@ -2,3 +2,5 @@
 2. add initialization progress (for now in logs)
 3. celery elasticsearch
 4. analyse readme, languages
+5. use pr summarization
+6. summarize pr
