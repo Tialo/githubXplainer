@@ -29,19 +29,16 @@ async def periodic_repository_update():
     try:
         async for session in get_session():
             # Get all initialized repositories from database
-            repositories = await repository_service.get_all_initialized_repositories(session)
-            for repo in repositories:
-                try:
-                    await repository_service.update_repository(
-                        session,
-                        repo.owner,
-                        repo.name
-                    )
-                    logger.info(f"Successfully updated repository {repo.owner}/{repo.name}")
-                    # Wait between repository updates
-                    await asyncio.sleep(get_settings().repository_update_delay * 60)
-                except Exception as e:
-                    logger.error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
+            repo = await repository_service.get_all_initialized_repositories(session)[0]
+            try:
+                await repository_service.update_repository(
+                    session,
+                    repo.owner,
+                    repo.name
+                )
+                logger.info(f"Successfully updated repository {repo.owner}/{repo.name}")
+            except Exception as e:
+                logger.error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
     except Exception as e:
         logger.error(f"Error in periodic update: {str(e)}")
 
