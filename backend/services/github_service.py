@@ -86,3 +86,16 @@ class GitHubService:
             f"repos/{owner}/{repo}/commits",
             params={"sha": sha, "per_page": per_page, "page": page}
         )
+
+    async def get_languages(self, owner: str, repo: str) -> Dict[str, int]:
+        """Fetch repository languages and their byte counts."""
+        return await self._make_request(f"repos/{owner}/{repo}/languages")
+
+    async def get_readme(self, owner: str, repo: str) -> Optional[Dict]:
+        """Fetch repository README content."""
+        try:
+            return await self._make_request(f"repos/{owner}/{repo}/readme")
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return None
+            raise
