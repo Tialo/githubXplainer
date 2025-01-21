@@ -31,6 +31,11 @@ uvicorn backend.api.app:app --reload
 curl -X POST http://localhost:8000/repos/init \
 -H "Content-Type: application/json" \
 -d '{"owner": "openai", "repo": "tiktoken"}'
+
+
+curl -X POST http://localhost:8000/repos/init \
+-H "Content-Type: application/json" \
+-d '{"owner": "Tialo", "repo": "githubXplainer"}'
 ```
 
 ```bash

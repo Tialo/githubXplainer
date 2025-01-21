@@ -172,7 +172,7 @@ if __name__ == "__main__":
                 
             # Test the function
             result = await get_last_issue_with_null_parent(session, 1)
-            print(result.id)
+            print(result.id, result.number)
 
     # Run the test
     asyncio.run(test_get_last_issue_with_null_parent())
