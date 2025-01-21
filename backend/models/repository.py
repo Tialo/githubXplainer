@@ -181,6 +181,14 @@ class IssueComment(Base):
             author_login=data["user"]["login"]
         )
 
+class ReadmeSummary(Base):
+    __tablename__ = "readme_summaries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    repository_id = Column(Integer, ForeignKey("repositories.id"), unique=True)
+    summarization = Column(Text)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
 
 if __name__ == "__main__":
     print(_get_pr_number_from_title("mrg (#1) from test/branch"))

@@ -12,7 +12,7 @@ from backend.db.database import (
     update_commit_attributes, get_deleted_issue_by_number,
     save_deleted_issue, save_repository_languages
 )
-from backend.tasks.summary_tasks import generate_commit_summary_task
+from backend.tasks.summary_tasks import generate_commit_summary_task, generate_readme_summary_task
 
 class RepositoryService:
     def __init__(self):
@@ -113,6 +113,8 @@ class RepositoryService:
                 readme_content=readme_content,
                 readme_path=readme_data["path"]
             )
+            # Trigger README summary generation
+            generate_readme_summary_task.delay(repository.id)
 
         # Continue with existing initialization
         commits_data = await self.github.get_commits(
@@ -178,6 +180,8 @@ class RepositoryService:
                     readme_content=readme_content,
                     readme_path=readme_data["path"]
                 )
+                # Trigger README summary generation
+                generate_readme_summary_task.delay(repository.id)
 
             # Fetch recent commits
             recent_commits = await self.github.get_commits(
