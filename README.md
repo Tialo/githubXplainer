@@ -19,8 +19,8 @@ pip install -r requirements.txt
 # 1. Start infrastructure services first
 docker-compose up redis postgres elasticsearch
 
-# 3. Start Huey worker (in a separate terminal)
-# Huey must be started before the API server since it processes the background tasks
+# 3. Start RQ worker (in a separate terminal)
+# RQ must be started before the API server since it processes the background tasks
 python -m backend.tasks.worker
 
 # 4. Finally, start the API server (in another separate terminal)
@@ -72,7 +72,7 @@ poetry run pytest
 - **Database issues**: Check `docker-compose ps` and database credentials
 - **GitHub API**: Verify token in `.env` and rate limits
 - **Service errors**: Check `logs/app.log` for details
-- **Huey worker**: Verify Redis connection and check Huey logs with `python -m backend.tasks.worker --loglevel=debug`
+- **RQ worker**: Verify Redis connection and check RQ logs with `python -m backend.tasks.worker --loglevel=debug`
 
 ## API Documentation
 
@@ -80,7 +80,7 @@ Browse OpenAPI docs at http://localhost:8000/docs
 
 ## Monitoring
 
-### Huey Monitoring
+### RQ Monitoring
 Access the Flower dashboard at http://localhost:5555 to monitor:
 - Task progress and history
 - Worker status

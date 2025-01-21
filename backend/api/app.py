@@ -41,16 +41,6 @@ async def periodic_repository_update():
     except Exception as e:
         logger.error(f"Error in periodic update: {str(e)}")
 
-async def process_missing_summaries():
-    """Periodically check for and process commits without summaries."""
-    try:
-        result = process_missing_summaries_task()
-        commits_queued = result.get()
-        if commits_queued > 0:
-            logger.info(f"Queued {commits_queued} commits for summary generation")
-    except Exception as e:
-        logger.error(f"Error in summary processing scheduler: {str(e)}")
-
 @app.on_event("startup")
 async def startup_event():
     """Initialize the database and scheduler on app startup."""
