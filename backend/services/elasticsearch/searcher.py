@@ -261,3 +261,26 @@ class Searcher:
         except Exception as e:
             logger.error(f"Failed to initialize Elasticsearch indices: {e}")
             raise
+
+    async def clear_all_indices(self) -> Dict[str, Any]:
+        """Clear all Elasticsearch indices."""
+        try:
+            indices = ['commits', 'issues']
+            results = {}
+            
+            for index in indices:
+                index_name = self.index_manager.get_index_name(index)
+                if await self.client.indices.exists(index=index_name):
+                    response = await self.client.delete_by_query(
+                        index=index_name,
+                        body={"query": {"match_all": {}}}
+                    )
+                    results[index] = {
+                        "deleted": response.get("deleted", 0),
+                        "total": response.get("total", 0)
+                    }
+            
+            return results
+        except Exception as e:
+            logger.error(f"Failed to clear indices: {e}")
+            raise
