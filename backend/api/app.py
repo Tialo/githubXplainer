@@ -29,19 +29,16 @@ async def periodic_repository_update():
     try:
         async for session in get_session():
             # Get all initialized repositories from database
-            repositories = await repository_service.get_all_initialized_repositories(session)
-            for repo in repositories:
-                try:
-                    await repository_service.update_repository(
-                        session,
-                        repo.owner,
-                        repo.name
-                    )
-                    logger.info(f"Successfully updated repository {repo.owner}/{repo.name}")
-                    # Wait between repository updates
-                    await asyncio.sleep(get_settings().repository_update_delay * 60)
-                except Exception as e:
-                    logger.error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
+            repo = await repository_service.get_all_initialized_repositories(session)[0]
+            try:
+                await repository_service.update_repository(
+                    session,
+                    repo.owner,
+                    repo.name
+                )
+                logger.info(f"Successfully updated repository {repo.owner}/{repo.name}")
+            except Exception as e:
+                logger.error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
     except Exception as e:
         logger.error(f"Error in periodic update: {str(e)}")
 
@@ -118,6 +115,10 @@ class SimilaritySearchResponse(BaseModel):
     took: float
     similar_items: List[SearchResult]
 
+class RepositoryDelete(BaseModel):
+    owner: str
+    repo: str
+
 @app.post("/repos/init", response_model=RepositoryResponse)
 async def initialize_repository(
     repo_init: RepositoryInit,
@@ -144,6 +145,39 @@ async def initialize_repository(
             "traceback": traceback.format_exc()
         }
         logger.error(f"Error processing repository: {error_detail}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail
+        )
+
+@app.delete("/repos/delete", response_model=RepositoryResponse)
+async def delete_repository(
+    repo_delete: RepositoryDelete,
+    session: AsyncSession = Depends(get_session)
+):
+    """Delete a repository and its associated data from both PostgreSQL."""
+    try:
+        # Delete from PostgreSQL
+        repository = await repository_service.delete_repository(
+            session,
+            repo_delete.owner,
+            repo_delete.repo
+        )
+        
+        return RepositoryResponse(
+            owner=repository.owner,
+            name=repository.name,
+            commits_processed=0,
+            issues_processed=0,
+            message="Repository successfully deleted"
+        )
+    except Exception as e:
+        error_detail = {
+            "type": type(e).__name__,
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
+        logger.error(f"Error deleting repository: {error_detail}")
         raise HTTPException(
             status_code=500,
             detail=error_detail

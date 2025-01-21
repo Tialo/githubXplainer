@@ -29,8 +29,7 @@ class Settings(BaseSettings):
 
     # Scheduler settings
     repository_update_interval: int = 5
-    repository_update_delay: int = 5
-    use_scheduler: bool = True
+    use_scheduler: bool = False
 
     class Config:
         env_file = ".env"

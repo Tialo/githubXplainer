@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15
@@ -21,6 +23,28 @@ services:
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
 
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  celery_worker:
+    build: .
+    command: celery -A backend.tasks.worker worker --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://user:password@db:5432/githubxplainer
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    depends_on:
+      - web
+      - redis
+      - db
+
 volumes:
   postgres_data:
   elasticsearch_data:
+  redis_data:

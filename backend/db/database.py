@@ -5,6 +5,21 @@ from backend.models.base import Base
 from sqlalchemy.ext.asyncio import create_async_engine
 from backend.config.settings import settings
 from sqlalchemy import select, func, and_, exists, alias
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# Create SQLAlchemy engine for sync operations (Celery tasks)
+sync_engine = create_engine(
+    settings.database_url.replace("+asyncpg", ""),
+    echo=settings.debug
+)
+
+# Session factory for synchronous operations
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=sync_engine
+)
 
 async def save_repository(session: AsyncSession, repository: Repository) -> Repository:
     session.add(repository)

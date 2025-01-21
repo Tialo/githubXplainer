@@ -6,6 +6,7 @@ apscheduler==3.8.0
 
 # Database
 asyncpg==0.28.0
+psycopg2-binary==2.9.9
 
 # Data Models and Settings
 pydantic==2.4.2
@@ -22,6 +23,7 @@ elasticsearch[async]>=8.11.1
 
 # Celery
 celery>=5.3.1
+redis>=4.5.0
 
 # Testing
 pytest-asyncio>=0.23.1

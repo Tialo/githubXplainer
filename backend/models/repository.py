@@ -1,6 +1,24 @@
+import re
 from datetime import datetime, timezone
 from sqlalchemy import BigInteger, Integer, String, Boolean, DateTime, ForeignKey, Column, Text
 from backend.models.base import Base
+
+
+def _get_pr_number_from_title(title: str) -> int:
+    """Extracts the pull request number from a commit title. Like (#142) and (gh-142)"""
+    pattern1 = r'\(#(\d+)\)'
+    match = re.search(pattern1, title)
+    if match:
+        return int(match.group(1))
+    
+    # Match (gh-number) format, case insensitive
+    pattern2 = r'\((?i:gh)-(\d+)\)'
+    match = re.search(pattern2, title)
+    if match:
+        return int(match.group(1))
+    
+    return None
+
 
 class Repository(Base):
     __tablename__ = "repositories"
@@ -44,6 +62,7 @@ class Commit(Base):
     committer_name = Column(String)
     committer_email = Column(String)
     committed_date = Column(DateTime(timezone=True))
+    pull_request_number = Column(Integer, nullable=True)
     repository_id = Column(Integer, ForeignKey("repositories.id"))
 
     @classmethod
@@ -60,8 +79,16 @@ class Commit(Base):
             committer_name=commit["committer"]["name"],
             committer_email=commit["committer"]["email"],
             committed_date=datetime.fromisoformat(commit["committer"]["date"].rstrip('Z')).replace(tzinfo=timezone.utc),
-            repository_id=repository_id
+            repository_id=repository_id,
+            pull_request_number=_get_pr_number_from_title(commit["message"]),
         )
+
+class CommitSummary(Base):
+    __tablename__ = "commit_summaries"
+
+    id = Column(Integer, primary_key=True)
+    commit_id = Column(Integer, ForeignKey("commits.id"), unique=True)
+    summary = Column(Text, nullable=False)
 
 class CommitDiff(Base):
     __tablename__ = "commit_diffs"
@@ -140,3 +167,13 @@ class IssueComment(Base):
             updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             author_login=data["user"]["login"]
         )
+
+
+if __name__ == "__main__":
+    print(_get_pr_number_from_title("mrg (#1) from test/branch"))
+    print(_get_pr_number_from_title("Merge (gh-2) from test/branch"))
+    print(_get_pr_number_from_title("GH-5123 fix"))
+    print(_get_pr_number_from_title("fix (#5123)"))
+    print(_get_pr_number_from_title("fix #512 (GH-515)"))
+    print(_get_pr_number_from_title("gh-512 fix (#515)"))
+    print(_get_pr_number_from_title("(gh-12412): fix"))

@@ -44,6 +44,10 @@ curl -X POST http://localhost:8000/elasticsearch/init
 
 # drop
 curl -X POST http://localhost:8000/elasticsearch/clear
+
+curl -X DELETE http://localhost:8000/repos/delete \
+-H "Content-Type: application/json" \
+-d '{"owner": "Tialo", "repo": "githubXplainer"}'
 ```
 
 ```bash
