@@ -83,7 +83,7 @@ class IndexManager:
                     ])
             
             if actions:
-                await self.client.indices.update_aliases({"actions": actions})
+                await self.client.indices.update_aliases(body={"actions": actions})
                 logger.info("Updated index aliases")
         except Exception as e:
             logger.error(f"Failed to update aliases: {e}")

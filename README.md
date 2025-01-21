@@ -16,8 +16,11 @@ pip install -r requirements.txt
 
 2. **Start Services**
 ```bash
-# Start database
-docker-compose up -d postgres
+# Start database and elasticsearch
+docker-compose up -d postgres elasticsearch
+
+# Check Elasticsearch health
+curl http://localhost:9200/_cluster/health
 
 # Start API server
 uvicorn backend.api.app:app --reload
@@ -28,6 +31,10 @@ uvicorn backend.api.app:app --reload
 curl -X POST http://localhost:8000/repos/init \
 -H "Content-Type: application/json" \
 -d '{"owner": "openai", "repo": "tiktoken"}'
+```
+
+```bash
+curl -X POST http://localhost:8000/elasticsearch/init
 ```
 
 ## Development

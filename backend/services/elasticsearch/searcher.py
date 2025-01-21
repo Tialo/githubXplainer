@@ -1,9 +1,13 @@
 import asyncio
 from elasticsearch import AsyncElasticsearch
+from elasticsearch.helpers import async_bulk
 from backend.services.elasticsearch.index_manager import IndexManager
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import logging
+from backend.models.repository import CommitDiff, Issue, PullRequest
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -201,4 +205,82 @@ class Searcher:
             return [hit["_source"] for hit in response["hits"]["hits"]]
         except Exception as e:
             logger.error(f"Error finding similar items: {e}")
+            raise
+
+    async def initialize_elasticsearch(self, db_session: AsyncSession) -> None:
+        """Initialize Elasticsearch indices with data from PostgreSQL."""
+        try:
+            # First ensure indices exist
+            await self.index_manager.ensure_indices()
+            
+            # Initialize commits
+            async def commit_generator():
+                query = select(CommitDiff)
+                result = await db_session.execute(query)
+                commits = result.scalars().all()
+                
+                for commit in commits:
+                    yield {
+                        "_index": self.index_manager.get_index_name('commits'),
+                        "_source": {
+                            "commit_hash": commit.commit_hash,
+                            "message": commit.diff_content,
+                            "metadata": {
+                                "repository_id": commit.repository_id,
+                                "file_path": commit.file_path,
+                                "date": commit.created_at.isoformat()
+                            }
+                        }
+                    }
+
+            # Initialize issues
+            async def issue_generator():
+                query = select(Issue)
+                result = await db_session.execute(query)
+                issues = result.scalars().all()
+                
+                for issue in issues:
+                    yield {
+                        "_index": self.index_manager.get_index_name('issues'),
+                        "_source": {
+                            "title": issue.title,
+                            "body": issue.body,
+                            "metadata": {
+                                "repository_id": issue.repository_id,
+                                "state": issue.state,
+                                "created_at": issue.created_at.isoformat(),
+                                "labels": issue.labels
+                            }
+                        }
+                    }
+
+            # Initialize pull requests
+            async def pr_generator():
+                query = select(PullRequest)
+                result = await db_session.execute(query)
+                prs = result.scalars().all()
+                
+                for pr in prs:
+                    yield {
+                        "_index": self.index_manager.get_index_name('pull_requests'),
+                        "_source": {
+                            "title": pr.title,
+                            "description": pr.body,  # Changed from pr.description to pr.body
+                            "metadata": {
+                                "repository_id": pr.repository_id,
+                                "state": pr.state,
+                                "base_branch": pr.base_branch,
+                                "created_at": pr.created_at.isoformat()
+                            }
+                        }
+                    }
+
+            # Bulk index the data
+            for generator in [commit_generator(), issue_generator(), pr_generator()]:
+                await async_bulk(self.client, generator)
+            
+            logger.info("Successfully initialized Elasticsearch indices with PostgreSQL data")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Elasticsearch indices: {e}")
             raise

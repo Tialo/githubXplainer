@@ -1,0 +1,26 @@
+{
+  "mappings": {
+    "properties": {
+      "commit_hash": {
+        "type": "keyword"
+      },
+      "message": {
+        "type": "text",
+        "analyzer": "custom_analyzer"
+      },
+      "metadata": {
+        "properties": {
+          "repository_id": {
+            "type": "long"
+          },
+          "file_path": {
+            "type": "keyword"
+          },
+          "date": {
+            "type": "date"
+          }
+        }
+      }
+    }
+  }
+}

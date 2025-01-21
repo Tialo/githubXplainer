@@ -1,0 +1,30 @@
+{
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text",
+        "analyzer": "custom_analyzer"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "custom_analyzer"
+      },
+      "metadata": {
+        "properties": {
+          "repository_id": {
+            "type": "long"
+          },
+          "state": {
+            "type": "keyword"
+          },
+          "base_branch": {
+            "type": "keyword"
+          },
+          "created_at": {
+            "type": "date"
+          }
+        }
+      }
+    }
+  }
+}
