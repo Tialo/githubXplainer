@@ -1,5 +1,5 @@
 from typing import Tuple, Optional, List, Dict
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.github_service import GitHubService
 from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue
@@ -212,5 +212,49 @@ class RepositoryService:
             select(Repository).where(Repository.is_initialized == True)
         )
         return result.scalars().all()
+
+    async def delete_repository(self, session: AsyncSession, owner: str, repo: str) -> Repository:
+        """Delete a repository and all its associated data."""
+        async with session.begin():
+            # Get repository
+            repository = await get_repository_by_owner_and_name(session, owner, repo)
+            if not repository:
+                raise ValueError(f"Repository {owner}/{repo} not found")
+            
+            # Delete all related data
+            await session.execute(
+                text("""
+                WITH deleted_issues AS (
+                    DELETE FROM issues WHERE repository_id = :repo_id RETURNING id
+                )
+                DELETE FROM issue_comments WHERE issue_id IN (SELECT id FROM deleted_issues)
+                """),
+                {"repo_id": repository.id}
+            )
+            
+            await session.execute(
+                text("""
+                WITH deleted_commits AS (
+                    DELETE FROM commits WHERE repository_id = :repo_id RETURNING id
+                )
+                DELETE FROM commit_diffs WHERE commit_id IN (SELECT id FROM deleted_commits)
+                """),
+                {"repo_id": repository.id}
+            )
+            
+            # Delete deleted_issues records
+            await session.execute(
+                text("DELETE FROM deleted_issues WHERE repository_id = :repo_id"),
+                {"repo_id": repository.id}
+            )
+            
+            # Delete the repository itself
+            await session.execute(
+                text("DELETE FROM repositories WHERE id = :repo_id"),
+                {"repo_id": repository.id}
+            )
+            
+            await session.commit()
+            return repository
 
 repository_service = RepositoryService()
