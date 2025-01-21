@@ -150,7 +150,7 @@ async def search_all_content(query: SearchQuery):
         logger.error(f"Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/search/{content_type}", response_model=SearchResponse)
+@app.post("/search/type/{content_type}", response_model=SearchResponse)
 async def search_content(
     content_type: str,
     query: ContentSearchQuery
@@ -196,7 +196,6 @@ async def search_content(
 @app.post("/search/similar")
 async def find_similar(query: SimilaritySearchQuery):
     """Find similar issues or pull requests based on text content."""
-    raise HTTPException(status_code=501, detail="Not implemented")
     try:
         if query.content_type not in ['issues', 'pull_requests']:
             raise HTTPException(status_code=400, detail="Content type must be 'issues' or 'pull_requests'")
