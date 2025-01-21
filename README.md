@@ -71,7 +71,7 @@ poetry run pytest
 - **Database issues**: Check `docker-compose ps` and database credentials
 - **GitHub API**: Verify token in `.env` and rate limits
 - **Service errors**: Check `logs/app.log` for details
-- **Celery worker**: Verify Redis connection and check celery logs with `celery -A backend.tasks.worker worker --loglevel=debug`
+- **Huey worker**: Verify Redis connection and check Huey logs with `python -m backend.tasks.worker --loglevel=debug`
 
 ## API Documentation
 
@@ -79,7 +79,7 @@ Browse OpenAPI docs at http://localhost:8000/docs
 
 ## Monitoring
 
-### Celery Monitoring
+### Huey Monitoring
 Access the Flower dashboard at http://localhost:5555 to monitor:
 - Task progress and history
 - Worker status
