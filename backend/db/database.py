@@ -1,8 +1,10 @@
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.models.repository import Repository, Commit, Issue, PullRequest, IssueComment, PullRequestComment, CommitDiff
+from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff
 from backend.models.base import Base
 from sqlalchemy.ext.asyncio import create_async_engine
 from backend.config.settings import settings
+from sqlalchemy import select, func, and_, exists, alias
 
 async def save_repository(session: AsyncSession, repository: Repository) -> Repository:
     session.add(repository)
@@ -12,6 +14,8 @@ async def save_repository(session: AsyncSession, repository: Repository) -> Repo
 
 async def save_commit(session: AsyncSession, commit: Commit) -> Commit:
     session.add(commit)
+    await session.flush()  # Ensure ID is generated
+    await session.refresh(commit)  # Load the generated ID
     return commit
 
 async def save_issue(session: AsyncSession, issue: Issue) -> Issue:
@@ -20,17 +24,7 @@ async def save_issue(session: AsyncSession, issue: Issue) -> Issue:
     await session.refresh(issue)  # Load the generated ID
     return issue
 
-async def save_pull_request(session: AsyncSession, pr: PullRequest) -> PullRequest:
-    session.add(pr)
-    await session.flush()  # Ensure ID is generated
-    await session.refresh(pr)  # Load the generated ID
-    return pr
-
 async def save_issue_comment(session: AsyncSession, comment: IssueComment) -> IssueComment:
-    session.add(comment)
-    return comment
-
-async def save_pr_comment(session: AsyncSession, comment: PullRequestComment) -> PullRequestComment:
     session.add(comment)
     return comment
 
@@ -38,8 +32,106 @@ async def save_commit_diff(session: AsyncSession, diff: CommitDiff) -> CommitDif
     session.add(diff)
     return diff
 
+async def update_repository_attributes(session: AsyncSession, repository_id: int, **kwargs) -> Repository:
+    """Update repository attributes by id."""
+    result = await session.execute(
+        select(Repository).where(Repository.id == repository_id)
+    )
+    repository = result.scalar_one_or_none()
+    if repository:
+        for key, value in kwargs.items():
+            setattr(repository, key, value)
+        await session.flush()
+    return repository
+
+async def update_commit_attributes(session: AsyncSession, commit_id: int, **kwargs) -> Commit:
+    """Update commit attributes by id."""
+    result = await session.execute(
+        select(Commit).where(Commit.id == commit_id)
+    )
+    commit = result.scalar_one_or_none()
+    if commit:
+        for key, value in kwargs.items():
+            setattr(commit, key, value)
+        await session.flush()
+    return commit
+
+
 async def init_db():
     """Initialize the database by creating all tables."""
     engine = create_async_engine(settings.database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+async def get_last_commit_with_null_parent(session: AsyncSession, repository_id: int) -> Optional[Commit]:
+    """Get the most recent commit that has parent_sha == null."""
+    result = await session.execute(
+        select(Commit)
+        .where(and_(
+            Commit.repository_id == repository_id,
+            Commit.parent_sha == None
+        ))
+        .order_by(Commit.committed_date.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+async def get_commit_by_sha(session: AsyncSession, sha: str, repository_id: int) -> Optional[Commit]:
+    """Get commit by its SHA."""
+    result = await session.execute(
+        select(Commit)
+        .where(and_(
+            Commit.github_sha == sha,
+            Commit.repository_id == repository_id
+        ))
+    )
+    return result.scalar_one_or_none()
+
+async def get_last_issue_with_null_parent(session: AsyncSession, repository_id: int) -> Optional[Issue]:
+    """Get the most recent issue where the previous issue number doesn't exist."""
+    issue_alias = alias(Issue)
+    subq = (
+        select(func.max(Issue.number))
+        .where(and_(
+            Issue.repository_id == repository_id,
+            ~exists(
+                select(1)
+                .where(and_(
+                    issue_alias.c.repository_id == Issue.repository_id,
+                    issue_alias.c.number == Issue.number - 1
+                ))
+            )
+        ))
+    ).scalar_subquery()
+
+    result = await session.execute(
+        select(Issue)
+        .where(and_(
+            Issue.repository_id == repository_id,
+            Issue.number == subq
+        ))
+    )
+    return result.scalar_one_or_none()
+    
+async def get_issue_by_number(session: AsyncSession, number: int, repository_id: int) -> Optional[Issue]:
+    """Get issue by its number."""
+    result = await session.execute(
+        select(Issue)
+        .where(and_(
+            Issue.number == number,
+            Issue.repository_id == repository_id
+        ))
+    )
+    return result.scalar_one_or_none()
+
+async def get_repository_by_owner_and_name(session: AsyncSession, owner: str, name: str) -> Optional[Repository]:
+    """Get repository by owner and name."""
+    result = await session.execute(
+        select(Repository)
+        .where(and_(
+            Repository.owner == owner,
+            Repository.name == name
+        ))
+    )
+    return result.scalar_one_or_none()

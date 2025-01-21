@@ -31,7 +31,6 @@ class RepositoryResponse(BaseModel):
     name: str
     commits_processed: int
     issues_processed: int
-    prs_processed: int
     message: str
 
 class ElasticsearchInitResponse(BaseModel):
@@ -80,7 +79,7 @@ async def initialize_repository(
     session: AsyncSession = Depends(get_session)
 ):
     try:
-        repository, commits_count, issues_count, prs_count = await repository_service.initialize_repository(
+        repository, commits_count, issues_count = await repository_service.update_repository(
             session,
             repo_init.owner,
             repo_init.repo
@@ -91,7 +90,6 @@ async def initialize_repository(
             name=repository.name,
             commits_processed=commits_count,
             issues_processed=issues_count,
-            prs_processed=prs_count,
             message="Repository initialization completed successfully"
         )
     except Exception as e:

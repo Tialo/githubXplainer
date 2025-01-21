@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     github_token: str
     github_api_url: str = "https://api.github.com"
     max_retries: int = 3
-    retry_delay: int = 5
+    retry_delay: int = 8
+    success_delay: int = 1
 
     # Database settings
     db_host: str = "localhost"

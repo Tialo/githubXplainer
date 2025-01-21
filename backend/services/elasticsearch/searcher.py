@@ -5,7 +5,7 @@ from backend.services.elasticsearch.index_manager import IndexManager
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import logging
-from backend.models.repository import CommitDiff, Issue, PullRequest
+from backend.models.repository import CommitDiff, Issue
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 

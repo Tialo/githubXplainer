@@ -36,6 +36,7 @@ class Commit(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     github_sha = Column(String, unique=True)
+    parent_sha = Column(String, nullable=True)
     message = Column(String)
     author_name = Column(String)
     author_email = Column(String)
@@ -46,10 +47,12 @@ class Commit(Base):
     repository_id = Column(Integer, ForeignKey("repositories.id"))
 
     @classmethod
-    def from_github_data(cls, data: dict, repository_id: int):
+    def from_github_data(cls, data: dict, repository_id: int, set_null_parent: bool = False):
         commit = data["commit"]
+        parent_sha = None if set_null_parent else (data["parents"][0]["sha"] if "parents" in data else None)
         return cls(
             github_sha=data["sha"],
+            parent_sha=parent_sha,
             message=commit["message"],
             author_name=commit["author"]["name"],
             author_email=commit["author"]["email"],
@@ -64,23 +67,18 @@ class CommitDiff(Base):
     __tablename__ = "commit_diffs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    commit_hash = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
-    diff_content = Column(Text)  # PostgreSQL Text type for large content
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    diff_content = Column(Text)
     
     # Foreign key relationships
-    repository_id = Column(Integer, ForeignKey("repositories.id"))
-    pull_request_id = Column(Integer, ForeignKey("pull_requests.id"), nullable=True)
+    commit_id = Column(Integer, ForeignKey("commits.id"))
 
     @classmethod
-    def from_github_data(cls, commit_hash: str, file_diff: dict, repository_id: int, pull_request_id: int = None):
+    def from_github_data(cls, commit_id: int, file_diff: dict):
         return cls(
-            commit_hash=commit_hash,
+            commit_id=commit_id,
             file_path=file_diff["filename"],
-            diff_content=file_diff["patch"] if "patch" in file_diff else None,
-            repository_id=repository_id,
-            pull_request_id=pull_request_id
+            diff_content=file_diff.get("patch"),
         )
 
 class Issue(Base):
@@ -97,6 +95,7 @@ class Issue(Base):
     closed_at = Column(DateTime(timezone=True), nullable=True)
     author_login = Column(String)
     labels = Column(String)
+    is_pull_request = Column(Boolean, default=False)
 
     @classmethod
     def from_github_data(cls, data: dict, repository_id: int):
@@ -111,7 +110,8 @@ class Issue(Base):
             updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             closed_at=datetime.fromisoformat(closed_at.rstrip('Z')).replace(tzinfo=timezone.utc) if closed_at else None,
             author_login=data["user"]["login"],
-            labels=",".join(label["name"] for label in data["labels"])
+            labels=",".join(label["name"] for label in data["labels"]),
+            is_pull_request="pull_request" in data,
         )
 
 class IssueComment(Base):
@@ -132,73 +132,4 @@ class IssueComment(Base):
             created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
             author_login=data["user"]["login"]
-        )
-
-class PullRequest(Base):
-    __tablename__ = "pull_requests"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    number = Column(Integer)
-    repository_id = Column(Integer, ForeignKey("repositories.id"))
-    title = Column(String)
-    body = Column(String, nullable=True)
-    state = Column(String)
-    created_at = Column(DateTime(timezone=True))
-    updated_at = Column(DateTime(timezone=True))
-    closed_at = Column(DateTime(timezone=True), nullable=True)
-    merged_at = Column(DateTime(timezone=True), nullable=True)
-    author_login = Column(String)
-    base_branch = Column(String)
-    head_branch = Column(String)
-    is_merged = Column(Boolean)
-
-    @classmethod
-    def from_github_data(cls, data: dict, repository_id: int):
-        closed_at = data.get("closed_at")
-        merged_at = data.get("merged_at")
-        return cls(
-            number=data["number"],
-            repository_id=repository_id,
-            title=data["title"],
-            body=data.get("body"),
-            state=data["state"],
-            created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
-            updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
-            closed_at=datetime.fromisoformat(closed_at.rstrip('Z')).replace(tzinfo=timezone.utc) if closed_at else None,
-            merged_at=datetime.fromisoformat(merged_at.rstrip('Z')).replace(tzinfo=timezone.utc) if merged_at else None,
-            author_login=data["user"]["login"],
-            base_branch=data["base"]["ref"],
-            head_branch=data["head"]["ref"],
-            is_merged=data.get("merged", False)
-        )
-
-class PullRequestComment(Base):
-    __tablename__ = "pull_request_comments"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    pull_request_id = Column(Integer, ForeignKey("pull_requests.id"))
-    body = Column(String)
-    created_at = Column(DateTime(timezone=True))
-    updated_at = Column(DateTime(timezone=True))
-    author_login = Column(String)
-    is_initial = Column(Boolean, default=False)  # True for the PR description/body
-
-    @classmethod
-    def from_github_data(cls, data: dict, pull_request_id: int, is_initial: bool = False):
-        if is_initial:
-            return cls(
-                pull_request_id=pull_request_id,
-                body=data.get("body", ""),
-                created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
-                updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
-                author_login=data["user"]["login"],
-                is_initial=True
-            )
-        return cls(
-            pull_request_id=pull_request_id,
-            body=data["body"],
-            created_at=datetime.fromisoformat(data["created_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
-            updated_at=datetime.fromisoformat(data["updated_at"].rstrip('Z')).replace(tzinfo=timezone.utc),
-            author_login=data["user"]["login"],
-            is_initial=False
         )

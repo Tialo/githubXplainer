@@ -37,6 +37,11 @@ curl -X POST http://localhost:8000/repos/init \
 curl -X POST http://localhost:8000/elasticsearch/init
 ```
 
+```bash
+# Drop volumes
+docker-compose down -v
+```
+
 ## Development
 
 ```bash
