@@ -10,9 +10,7 @@ from backend.db.database import (
 class RepositoryService:
     def __init__(self):
         self.github = GitHubService()
-        self.max_items = 20  # Limit items per entity type to avoid rate limits
-        self.max_comments = 10  # Limit comments per issue/PR
-        self.max_files_per_commit = 20  # Limit number of files per commit
+        self.max_items = 20
 
     async def initialize_repository(self, session: AsyncSession, owner: str, repo: str) -> Tuple[Repository, int, int, int]:
         async with session.begin():
@@ -31,7 +29,7 @@ class RepositoryService:
                 # Fetch and save commit diffs
                 commit_detail = await self.github.get_commit(owner, repo, commit_data["sha"])
                 if "files" in commit_detail:
-                    for file_diff in commit_detail["files"][:self.max_files_per_commit]:
+                    for file_diff in commit_detail["files"]:
                         diff = CommitDiff.from_github_data(
                             commit_hash=commit_data["sha"],
                             file_diff=file_diff,
@@ -53,7 +51,7 @@ class RepositoryService:
                 
                 # Fetch and save issue comments
                 comments = await self.github.get_issue_comments(owner, repo, issue.number)
-                for comment_data in comments[:self.max_comments]:
+                for comment_data in comments:
                     comment = IssueComment.from_github_data(comment_data, issue.id)
                     await save_issue_comment(session, comment)
                 
@@ -72,7 +70,7 @@ class RepositoryService:
                 
                 # Fetch and save PR comments
                 comments = await self.github.get_pull_request_comments(owner, repo, pr.number)
-                for comment_data in comments[:self.max_comments]:
+                for comment_data in comments:
                     comment = PullRequestComment.from_github_data(comment_data, pr.id)
                     await save_pr_comment(session, comment)
                 
