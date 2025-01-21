@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.models.repository import (
     Commit, CommitDiff, Issue, RepositoryLanguage,
-    ReadmeSummary
+    ReadmeSummary, Repository
 )
 from backend.utils.logger import get_logger
 from backend.db.database import SessionLocal
@@ -24,7 +24,10 @@ def get_commit_data(
     Retrieve commit data with related diffs, PR information, repository languages and readme summary
     Returns tuple: (commit, diffs, pr, languages, readme_summary, repo_path)
     """
-    commit = db.query(Commit).filter(Commit.id == commit_id).first()
+    commit = db.query(Commit)\
+        .join(Repository)\
+        .filter(Commit.id == commit_id)\
+        .first()
     if not commit:
         raise CommitNotFoundError(f"Commit with id {commit_id} not found")
     
@@ -50,8 +53,9 @@ def get_commit_data(
         ReadmeSummary.repository_id == commit.repository_id
     ).first()
     
-    # Get repository path
-    repo_path = f"{commit.repository.owner}/{commit.repository.name}"
+    # Get repository info
+    repository = db.query(Repository).filter(Repository.id == commit.repository_id).first()
+    repo_path = f"{repository.owner}/{repository.name}"
     
     return commit, diffs, pr, languages, readme_summary, repo_path
 
@@ -63,7 +67,7 @@ def get_commits_without_summaries(db: Session) -> List[int]:
         SELECT c.id 
         FROM commits c 
         LEFT JOIN commit_summaries cs ON c.id = cs.commit_id 
-        WHERE cs.id IS NULL
+        WHERE cs.id IS NULL limit 5
     """)
     result = db.execute(query)
     return [row[0] for row in result]
@@ -89,6 +93,11 @@ def save_commit_summary(db: Session, commit_id: int) -> None:
     Generate and save commit summary to the database
     """
     from backend.models.repository import CommitSummary
+
+    # if commit has summary then return
+    commit_summary = db.query(CommitSummary).filter(CommitSummary.commit_id == commit_id).first()
+    if commit_summary:
+        return
     
     try:
         summary = generate_commit_summary(commit_id, db)

@@ -17,11 +17,11 @@ pip install -r requirements.txt
 2. **Start Services (in this exact order)**
 ```bash
 # 1. Start infrastructure services first
-docker-compose up redis postgres elasticsearch
+docker-compose up postgres elasticsearch kafka
 
 # 3. Start RQ worker (in a separate terminal)
 # RQ must be started before the API server since it processes the background tasks
-python -m backend.tasks.worker
+python -m backend.tasks.summary_tasks
 
 # 4. Finally, start the API server (in another separate terminal)
 uvicorn backend.api.app:app --reload
@@ -86,3 +86,33 @@ Access the Flower dashboard at http://localhost:5555 to monitor:
 - Worker status
 - Real-time statistics
 - Task graphs and metrics
+
+## Kafka Setup
+
+The application uses Kafka for message queuing with two main topics:
+- `readme`: For processing README file changes
+- `commit`: For processing commit information
+
+### Usage Example
+
+```typescript
+import { KafkaService, TOPICS } from './kafka/KafkaService';
+
+// Initialize service
+const kafkaService = new KafkaService();
+await kafkaService.initialize();
+
+// Create a consumer
+const consumer = await kafkaService.createConsumer('my-group');
+
+// Subscribe to topics
+await kafkaService.subscribeToTopic(consumer, TOPICS.README, async (message) => {
+  console.log('Received README update:', message);
+});
+
+// Publish a message
+await kafkaService.publishMessage(TOPICS.COMMIT, {
+  id: '123',
+  message: 'Initial commit'
+});
+```

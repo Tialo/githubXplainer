@@ -1,10 +1,11 @@
+import threading
 import traceback
 import logging
 from fastapi import FastAPI, HTTPException, Depends, Body
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.repository_service import repository_service
-from backend.config.settings import get_session
+from backend.config.settings import get_session, settings
 from backend.db.database import init_db
 from backend.services.elasticsearch.searcher import Searcher
 from backend.config.elasticsearch import get_elasticsearch_client
@@ -12,11 +13,16 @@ from typing import Optional, List
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from backend.config.settings import get_settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+import logging
+
+logging.disable(logging.WARNING)
+logging.basicConfig()
+logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 
 app = FastAPI(title="GitHub Xplainer")
 
@@ -25,39 +31,32 @@ scheduler = AsyncIOScheduler()
 
 async def periodic_repository_update():
     """Periodically update repository data."""
-    try:
-        async for session in get_session():
-            # Get all initialized repositories from database
-            repo = await repository_service.get_all_initialized_repositories(session)[0]
-            try:
-                await repository_service.update_repository(
-                    session,
-                    repo.owner,
-                    repo.name
-                )
-                logger.info(f"Successfully updated repository {repo.owner}/{repo.name}")
-            except Exception as e:
-                logger.error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
-    except Exception as e:
-        logger.error(f"Error in periodic update: {str(e)}")
+    while True:
+        try:
+            async for session in get_session():
+                # Get all initialized repositories from database
+                repos = await repository_service.get_all_initialized_repositories(session)
+                for repo in repos:
+                    try:
+                        await repository_service.update_repository(
+                            session,
+                            repo.owner,
+                            repo.name
+                        )
+                        logger.info(f"Successfully updated repository {repo.owner}/{repo.name}")
+                    except Exception as e:
+                        logger.error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error in periodic update: {str(e)}")
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize the database and scheduler on app startup."""
     await init_db()
-    
-    settings = get_settings()
-    if settings.use_scheduler:
-        # Add the periodic task with configurable interval
-        scheduler.add_job(
-            periodic_repository_update,
-            trigger=IntervalTrigger(minutes=settings.repository_update_interval),
-            id='repository_update',
-            name=f'Update repositories every {settings.repository_update_interval} minutes',
-            replace_existing=True
-        )
 
-        scheduler.start()
+    if settings.use_scheduler:
+        thr = threading.Thread(target=periodic_repository_update)
+        thr.start()
 
 @app.on_event("shutdown")
 async def shutdown_event():

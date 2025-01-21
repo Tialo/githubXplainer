@@ -1,10 +1,9 @@
-import redis
-from rq import Queue
-from rq.decorators import job
-from rq_scheduler import Scheduler
-from datetime import timedelta, datetime
+import sys
+import six
+if sys.version_info >= (3, 12, 0):
+    sys.modules['kafka.vendor.six.moves'] = six.moves
 
-from backend.config.redis_config import redis_conn
+from backend.kafka.kafka_service import KafkaInterface
 from backend.db.database import SessionLocal
 from backend.services.summary_generator import save_commit_summary, get_commits_without_summaries
 from backend.services.readme_summarizer import ReadmeSummarizer
@@ -12,35 +11,30 @@ from backend.models.repository import ReadmeSummary, Repository
 from backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
+kafka = KafkaInterface()
 
-# Initialize RQ queue and scheduler
-queue = Queue(connection=redis_conn)
-scheduler = Scheduler(connection=redis_conn)
 
-@job('default', connection=redis_conn, retry=3)
+def generate_readme_summary_task(repository_id: int):
+    logger.info(f"Generating summary task for README {repository_id}")
+    kafka.write_to_topic("readme", {"repository_id": repository_id})
+
+
 def generate_commit_summary_task(commit_id: int) -> None:
     """
     RQ task to generate and save commit summary.
     Uses Redis lock to ensure only one summarization runs at a time.
     """
-    lock = redis_conn.lock('summarization_lock', timeout=3600)  # 1 hour timeout
-    if not lock.acquire(blocking=False):
-        logger.info("Another summarization task is running")
-        return
-    
+    logger.info(f"Generating summary for commit {commit_id}")
+    db = SessionLocal()
     try:
-        logger.info(f"Generating summary for commit {commit_id}")
-        db = SessionLocal()
-        try:
-            save_commit_summary(db, commit_id)
-            logger.info(f"Successfully generated summary for commit {commit_id}")
-        except Exception as e:
-            logger.error(f"Error generating summary for commit {commit_id}: {str(e)}")
-            raise
-        finally:
-            db.close()
+        save_commit_summary(db, commit_id)
+        logger.info(f"Successfully generated summary for commit {commit_id}")
+    except Exception as e:
+        logger.error(f"Error generating summary for commit {commit_id}: {str(e)}")
+        raise
     finally:
-        lock.release()
+        db.close()
+
 
 def schedule_missing_summaries():
     """
@@ -50,59 +44,74 @@ def schedule_missing_summaries():
     db = SessionLocal()
     try:
         commit_ids = get_commits_without_summaries(db)
-        # Only queue one task if no summarization is running
-        for commit_id in commit_ids:
-            if not redis_conn.exists('summarization_lock'):
-                queue.enqueue(generate_commit_summary_task, commit_id)
-                return 1
-        return 0
+        logger.info(f"Found {len(commit_ids)} commits without summaries")
+        for ci in commit_ids:
+            kafka.write_to_topic("commit", {"commit_id": ci})
     except Exception as e:
         logger.error(f"Error processing missing summaries: {str(e)}")
         raise
     finally:
         db.close()
 
-# Schedule the missing summaries task to run every 10 minutes
-scheduler.schedule(
-    scheduled_time=datetime.utcnow(),
-    func=schedule_missing_summaries,
-    interval=600  # 10 minutes in seconds
-)
 
-@job('default', connection=redis_conn)
-def generate_readme_summary_task(repository_id: int):
-    lock = redis_conn.lock('summarization_lock', timeout=3600)
-    if not lock.acquire(blocking=False):
-        logger.info("Another summarization task is running")
-        return
-
+def do_readme_summary_task(repository_id: int):
+    db = SessionLocal()
     try:
-        db = SessionLocal()
-        try:
-            repository = db.query(Repository).filter(Repository.id == repository_id).first()
-            if not repository or not repository.readme_content:
-                return
+        repository = db.query(Repository).filter(Repository.id == repository_id).first()
+        if not repository or not repository.readme_content:
+            return
+        
+        summarizer = ReadmeSummarizer()
+        summary = summarizer.summarize(repository.readme_content)
+        
+        readme_summary = ReadmeSummary(
+            repository_id=repository_id,
+            summarization=summary
+        )
+        
+        # Update or create summary
+        existing_summary = db.query(ReadmeSummary).filter(
+            ReadmeSummary.repository_id == repository_id
+        ).first()
+        
+        if existing_summary:
+            setattr(existing_summary, 'summarization', summary)
+        else:
+            db.add(readme_summary)
             
-            summarizer = ReadmeSummarizer()
-            summary = summarizer.summarize(repository.readme_content)
-            
-            readme_summary = ReadmeSummary(
-                repository_id=repository_id,
-                summarization=summary
-            )
-            
-            # Update or create summary
-            existing_summary = db.query(ReadmeSummary).filter(
-                ReadmeSummary.repository_id == repository_id
-            ).first()
-            
-            if existing_summary:
-                setattr(existing_summary, 'summarization', summary)
-            else:
-                db.add(readme_summary)
-                
-            db.commit()
-        finally:
-            db.close()
+        db.commit()
     finally:
-        lock.release()
+        db.close()
+
+if __name__ == '__main__':
+    import time
+    last_scheduled = time.time()
+    logger.info("Starting summary tasks")
+    
+    # Initialize kafka service and consumer
+    kafka = KafkaInterface()
+    
+    try:
+        while True:
+            if last_scheduled + 10 < time.time():
+                schedule_missing_summaries()
+                last_scheduled = time.time()
+            for message in kafka.read_from_topic("commit"):
+                logger.info(f"Received commit message: {message}")
+                try:
+                    generate_commit_summary_task(message.get("commit_id"))
+                except Exception as e:
+                    logger.error(f"Error processing commit message: {str(e)}")
+                    logger.exception("as")
+            for message in kafka.read_from_topic("readme"):
+                logger.info(f"Received README message: {message}")
+                try:
+                    do_readme_summary_task(message.get("repository_id"))
+                except Exception as e:
+                    logger.error(f"Error processing README message: {str(e)}")
+                    
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Shutting down summary tasks")
+    finally:
+        kafka.close()

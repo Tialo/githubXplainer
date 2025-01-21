@@ -58,7 +58,7 @@ class LLMSummarizer:
                 current_group = []
                 current_size = 0
             
-            current_group.append(diff.content)
+            current_group.append(diff)
             current_size += diff_size
 
         if current_group:
