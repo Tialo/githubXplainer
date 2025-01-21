@@ -3,7 +3,6 @@ from elasticsearch.helpers import async_bulk
 from backend.services.elasticsearch.index_manager import IndexManager
 from backend.models.repository import Commit, Issue, PullRequest, IssueComment, PullRequestComment
 from typing import List, Dict, Any, Tuple
-import asyncio
 
 class Indexer:
     def __init__(self, client: AsyncElasticsearch):
