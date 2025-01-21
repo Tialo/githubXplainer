@@ -54,7 +54,7 @@ class RepositoryService:
                     await save_commit_diff(session, diff)
             
             # Trigger summary generation task
-            generate_commit_summary_task.delay(commit.id)
+            generate_commit_summary_task(commit.id)
 
             commits_count += 1
         return commits_count
@@ -114,7 +114,7 @@ class RepositoryService:
                 readme_path=readme_data["path"]
             )
             # Trigger README summary generation
-            generate_readme_summary_task.delay(repository.id)
+            generate_readme_summary_task(repository.id)
 
         # Continue with existing initialization
         commits_data = await self.github.get_commits(
@@ -181,7 +181,7 @@ class RepositoryService:
                     readme_path=readme_data["path"]
                 )
                 # Trigger README summary generation
-                generate_readme_summary_task.delay(repository.id)
+                generate_readme_summary_task(repository.id)
 
             # Fetch recent commits
             recent_commits = await self.github.get_commits(

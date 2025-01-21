@@ -14,15 +14,16 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-2. **Start Services**
+2. **Start Services (in this exact order)**
 ```bash
-# Start infrastructure services
-docker-compose up -d postgres elasticsearch rabbitmq
+# 1. Start infrastructure services first
+docker-compose up redis postgres elasticsearch
 
-# Start Huey worker (in a separate terminal)
+# 3. Start Huey worker (in a separate terminal)
+# Huey must be started before the API server since it processes the background tasks
 python -m backend.tasks.worker
 
-# Start API server (in another separate terminal)
+# 4. Finally, start the API server (in another separate terminal)
 uvicorn backend.api.app:app --reload
 ```
 

@@ -1,4 +1,4 @@
-from backend.tasks.worker import huey
+from backend.config.huey_config import huey
 from huey.api import TaskLock
 from sqlalchemy.orm import Session
 from backend.db.database import SessionLocal
@@ -28,7 +28,7 @@ def generate_commit_summary_task(commit_id: int) -> None:
         finally:
             db.close()
 
-@huey.periodic_task(timedelta(minutes=10))
+@huey.periodic_task(retry_delay=timedelta(minutes=10))
 def process_missing_summaries_task() -> int:
     """
     Periodic task to find commits without summaries and queue them.

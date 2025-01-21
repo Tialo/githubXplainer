@@ -45,7 +45,7 @@ async def periodic_repository_update():
 async def process_missing_summaries():
     """Periodically check for and process commits without summaries."""
     try:
-        result = process_missing_summaries_task.delay()
+        result = process_missing_summaries_task()
         commits_queued = result.get()
         if commits_queued > 0:
             logger.info(f"Queued {commits_queued} commits for summary generation")

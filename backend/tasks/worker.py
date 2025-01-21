@@ -1,11 +1,7 @@
-import os
-from huey import RedisHuey
+from backend.config.huey_config import huey
 
-# Initialize Huey with Redis
-huey = RedisHuey(
-    name='githubxplainer',
-    url=os.environ.get('REDIS_URL', 'redis://localhost:6379'),
-)
+# Import tasks to ensure they are registered
+from backend.tasks import summary_tasks
 
 if __name__ == '__main__':
     from huey.consumer import Consumer
