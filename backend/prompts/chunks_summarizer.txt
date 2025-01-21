@@ -1,9 +1,9 @@
 You are an expert technical synthesizer analyzing multiple model-generated summaries of git commit changes. Your task is to create a refined, precise summary that captures the most technically relevant information while filtering out noise.
 INPUT CONTEXT:
 
-Repository technical domain: {domain}
-Number of model summaries: {N}
-Model summaries: [Summary1, Summary2, ..., SummaryN]
+Repository name: {repo_name}
+Primary language(s): {languages}
+Project description: {description}
 
 SYNTHESIS REQUIREMENTS:
 

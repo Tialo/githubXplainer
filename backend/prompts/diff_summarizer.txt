@@ -3,8 +3,7 @@ CONTEXT:
 
 Repository name: {repo_name}
 Primary language(s): {languages}
-Project description: {domain}
-Files changed: {files}
+Project description: {description}
 
 ANALYSIS REQUIREMENTS:
 

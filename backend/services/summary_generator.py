@@ -4,7 +4,7 @@ from backend.models.repository import (
     Commit, CommitDiff, Issue, RepositoryLanguage,
     ReadmeSummary
 )
-from .llm_summarizer import LLMSummarizer
+from .commit_summarizer import LLMSummarizer
 
 def get_commit_data(
     db: Session, 

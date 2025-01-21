@@ -15,9 +15,23 @@ class RepositoryContext:
     readme_summary: Optional[ReadmeSummary]
 
     def get_languages_str(self) -> str:
-        return ", ".join(lang.language for lang in self.languages)
+        if not self.languages:
+            return ""
+            
+        # Sort languages by bytes and calculate total
+        sorted_langs = sorted(self.languages, key=lambda x: x.bytes_count, reverse=True)
+        total_bytes = sum(lang.bytes_count for lang in self.languages)
+        
+        # Take top 5 languages and normalize percentages
+        top_langs = sorted_langs[:5]
+        lang_percentages = [
+            f"{lang.language} ({(lang.bytes_count/total_bytes)*100:.1f}%)"
+            for lang in top_langs
+        ]
+        
+        return ", ".join(lang_percentages)
 
-    def get_domain_str(self) -> str:
+    def get_description_str(self) -> str:
         return self.readme_summary.summarization if self.readme_summary else "No domain information available"
 
 class LLMSummarizer:
@@ -64,18 +78,26 @@ class LLMSummarizer:
         with open('backend/prompts/diff_summarizer.txt', 'r') as f:
             prompt_template = f.read()
 
-        context = {
-            'content': "\n".join(d.diff_content for d in diff_group.commit_diffs),
-            'languages': self.repo_context.get_languages_str() if self.repo_context else "",
-            'domain': self.repo_context.get_domain_str() if self.repo_context else "",
-        }
+        system_prompt = prompt_template.format(
+            repo_name="",
+            languages=self.repo_context.get_languages_str() if self.repo_context else "",
+            description=self.repo_context.get_description_str() if self.repo_context else "",
+        )
+
+        content = "\n\n".join(d.diff_content for d in diff_group.commit_diffs)
 
         response = Client().chat(
             model='deepseek-r1:8b',
-            messages=[{
-                'role': 'user',
-                'content': prompt_template.format(**context)
-            }]
+            messages=[
+                {
+                    'role': 'system',
+                    'content': system_prompt
+                },
+                {
+                    'role': 'user',
+                    'content': f"Summarize these changes {content}"
+                }
+            ]
         )
         return self.clean_summary(response.message.content)
 
@@ -83,15 +105,25 @@ class LLMSummarizer:
         with open('backend/prompts/chunks_summarizer.txt', 'r') as f:
             prompt_template = f.read()
 
+        system_prompt = prompt_template.format(
+            repo_name="",
+            languages=self.repo_context.get_languages_str() if self.repo_context else "",
+            description=self.repo_context.get_description_str() if self.repo_context else "",
+        )
+
         combined_summaries = "\n".join(summaries)
-        response = Client.chat(
+        response = Client().chat(
             model='deepseek-r1:14b',
-            messages=[{
-                'role': 'user',
-                'content': prompt_template.format(
-                    summaries=combined_summaries
-                )
-            }]
+            messages=[
+                {
+                    'role': 'system',
+                    'content': system_prompt
+                },
+                {
+                    'role': 'user',
+                    'content': f"Finalize the summary {combined_summaries}"
+                }
+            ]
         )
         return self.clean_summary(response.message.content)
 
