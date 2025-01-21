@@ -194,7 +194,7 @@ class Searcher:
                                     "fields": ["title", "body", "description", "message"],
                                     "like": text,
                                     "min_term_freq": 1,
-                                    "max_query_terms": 12
+                                    "min_doc_freq": 1,
                                 }
                             },
                             {"term": {"metadata.repository_id": repository_id}}
