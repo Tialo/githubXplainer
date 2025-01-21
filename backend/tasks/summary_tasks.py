@@ -1,22 +1,34 @@
-from backend.config.huey_config import huey
-from huey.api import TaskLock
-from sqlalchemy.orm import Session
+import redis
+from rq import Queue
+from rq.decorators import job
+from rq_scheduler import Scheduler
+from datetime import timedelta, datetime
+
+from backend.config.redis_config import redis_conn
 from backend.db.database import SessionLocal
 from backend.services.summary_generator import save_commit_summary, get_commits_without_summaries
-from backend.utils.logger import get_logger
-from backend.models.repository import ReadmeSummary, Repository
 from backend.services.readme_summarizer import ReadmeSummarizer
-from datetime import timedelta
+from backend.models.repository import ReadmeSummary, Repository
+from backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-@huey.task(retries=3, retry_delay=timedelta(minutes=1))
+# Initialize RQ queue and scheduler
+queue = Queue(connection=redis_conn)
+scheduler = Scheduler(connection=redis_conn)
+
+@job('default', connection=redis_conn, retry=3)
 def generate_commit_summary_task(commit_id: int) -> None:
     """
-    Huey task to generate and save commit summary.
-    Uses locking to ensure only one summarization runs at a time.
+    RQ task to generate and save commit summary.
+    Uses Redis lock to ensure only one summarization runs at a time.
     """
-    with TaskLock('summarization_lock', timeout=3600):  # 1 hour timeout
+    lock = redis_conn.lock('summarization_lock', timeout=3600)  # 1 hour timeout
+    if not lock.acquire(blocking=False):
+        logger.info("Another summarization task is running")
+        return
+    
+    try:
         logger.info(f"Generating summary for commit {commit_id}")
         db = SessionLocal()
         try:
@@ -27,22 +39,21 @@ def generate_commit_summary_task(commit_id: int) -> None:
             raise
         finally:
             db.close()
+    finally:
+        lock.release()
 
-@huey.periodic_task(retry_delay=timedelta(minutes=10))
-def process_missing_summaries_task() -> int:
+def schedule_missing_summaries():
     """
-    Periodic task to find commits without summaries and queue them.
-    Only queues next task when previous one is complete.
+    Function to find commits without summaries and queue them.
+    This will be scheduled via RQ-Scheduler.
     """
     db = SessionLocal()
     try:
         commit_ids = get_commits_without_summaries(db)
-        # Only queue one task at a time
+        # Only queue one task if no summarization is running
         for commit_id in commit_ids:
-            # Check if lock is available before queueing
-            if not TaskLock.is_locked('summarization_lock'):
-                generate_commit_summary_task(commit_id)
-                # Only queue one task, then exit
+            if not redis_conn.exists('summarization_lock'):
+                queue.enqueue(generate_commit_summary_task, commit_id)
                 return 1
         return 0
     except Exception as e:
@@ -51,9 +62,21 @@ def process_missing_summaries_task() -> int:
     finally:
         db.close()
 
-@huey.task()
+# Schedule the missing summaries task to run every 10 minutes
+scheduler.schedule(
+    scheduled_time=datetime.utcnow(),
+    func=schedule_missing_summaries,
+    interval=600  # 10 minutes in seconds
+)
+
+@job('default', connection=redis_conn)
 def generate_readme_summary_task(repository_id: int):
-    with TaskLock('summarization_lock', timeout=3600):  # 1 hour timeout
+    lock = redis_conn.lock('summarization_lock', timeout=3600)
+    if not lock.acquire(blocking=False):
+        logger.info("Another summarization task is running")
+        return
+
+    try:
         db = SessionLocal()
         try:
             repository = db.query(Repository).filter(Repository.id == repository_id).first()
@@ -65,7 +88,7 @@ def generate_readme_summary_task(repository_id: int):
             
             readme_summary = ReadmeSummary(
                 repository_id=repository_id,
-                **summary
+                summarization=summary
             )
             
             # Update or create summary
@@ -74,11 +97,12 @@ def generate_readme_summary_task(repository_id: int):
             ).first()
             
             if existing_summary:
-                for key, value in summary.items():
-                    setattr(existing_summary, key, value)
+                setattr(existing_summary, 'summarization', summary)
             else:
                 db.add(readme_summary)
                 
             db.commit()
         finally:
             db.close()
+    finally:
+        lock.release()

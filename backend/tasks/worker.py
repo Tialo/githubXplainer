@@ -1,9 +1,11 @@
-from backend.config.huey_config import huey
+import redis
+from rq import Connection, Queue, Worker
 
-# Import tasks to ensure they are registered
-from backend.tasks import summary_tasks
+from backend.config.redis_config import redis_conn
+from backend.tasks import summary_tasks  # Import tasks to ensure they are registered
 
 if __name__ == '__main__':
-    from huey.consumer import Consumer
-    consumer = Consumer(huey, workers=1, max_delay=10)
-    consumer.run()
+    with Connection(redis_conn):
+        queues = [Queue('default'), Queue('high')]  # Define your queues
+        worker = Worker(queues)
+        worker.work()

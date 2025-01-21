@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     repository_update_interval: int = 5
     use_scheduler: bool = False
 
+    # Redis settings
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str | None = None  # None for local development
+
     class Config:
         env_file = ".env"
 

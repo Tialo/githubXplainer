@@ -1,10 +1,20 @@
 from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from backend.models.repository import (
     Commit, CommitDiff, Issue, RepositoryLanguage,
     ReadmeSummary
 )
+from backend.utils.logger import get_logger
+from backend.db.database import SessionLocal
 from .commit_summarizer import LLMSummarizer
+
+
+logger = get_logger(__name__)
+
+
+class CommitNotFoundError(Exception):
+    pass
 
 def get_commit_data(
     db: Session, 
@@ -16,7 +26,7 @@ def get_commit_data(
     """
     commit = db.query(Commit).filter(Commit.id == commit_id).first()
     if not commit:
-        raise ValueError(f"Commit with id {commit_id} not found")
+        raise CommitNotFoundError(f"Commit with id {commit_id} not found")
     
     # Get all diffs for the commit
     diffs = db.query(CommitDiff).filter(CommitDiff.commit_id == commit_id).all()
@@ -49,12 +59,12 @@ def get_commits_without_summaries(db: Session) -> List[int]:
     """
     Find all commit IDs that don't have corresponding summaries
     """
-    query = """
+    query = text("""
         SELECT c.id 
         FROM commits c 
         LEFT JOIN commit_summaries cs ON c.id = cs.commit_id 
         WHERE cs.id IS NULL
-    """
+    """)
     result = db.execute(query)
     return [row[0] for row in result]
 
@@ -80,7 +90,11 @@ def save_commit_summary(db: Session, commit_id: int) -> None:
     """
     from backend.models.repository import CommitSummary
     
-    summary = generate_commit_summary(commit_id, db)
+    try:
+        summary = generate_commit_summary(commit_id, db)
+    except CommitNotFoundError:
+        logger.error(f"Commit with id {commit_id} not found")
+        return
     
     # Create or update summary
     commit_summary = db.query(CommitSummary).filter(CommitSummary.commit_id == commit_id).first()
@@ -91,3 +105,8 @@ def save_commit_summary(db: Session, commit_id: int) -> None:
         db.add(commit_summary)
     
     db.commit()
+
+
+if __name__ == '__main__':
+    db = SessionLocal()
+    print(get_commits_without_summaries(db))

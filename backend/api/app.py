@@ -13,7 +13,6 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from backend.config.settings import get_settings
-from backend.tasks.summary_tasks import process_missing_summaries_task
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -68,15 +67,6 @@ async def startup_event():
             replace_existing=True
         )
 
-        # Add new task for processing missing summaries
-        scheduler.add_job(
-            process_missing_summaries,
-            trigger=IntervalTrigger(minutes=15),  # Run every 15 minutes
-            id='process_missing_summaries',
-            name='Process commits without summaries',
-            replace_existing=True
-        )
-        
         scheduler.start()
 
 @app.on_event("shutdown")

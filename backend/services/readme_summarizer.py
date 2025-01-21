@@ -1,4 +1,4 @@
-from ollama import Client
+from ollama import chat
 import os
 
 class ReadmeSummarizer:
@@ -15,7 +15,7 @@ class ReadmeSummarizer:
     def summarize(self, readme_content: str) -> str:
         prompt = f"{self.prompt_template}\n\nAnalyze this README content:\n\n{readme_content}"
     
-        response = Client().chat(
+        response = chat(
             model='deepseek-r1:8b',
             messages=[{
                 'role': 'user',
