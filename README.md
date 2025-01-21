@@ -17,7 +17,7 @@ pip install -r requirements.txt
 2. **Start Services**
 ```bash
 # Start infrastructure services
-docker-compose up -d postgres elasticsearch redis flower
+docker-compose up -d postgres elasticsearch rabbitmq flower
 
 # Start Celery worker (in a separate terminal)
 celery -A backend.tasks.worker.celery_app worker -Q summarization --concurrency=1 --loglevel=info
