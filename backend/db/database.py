@@ -93,8 +93,9 @@ async def get_commit_by_sha(session: AsyncSession, sha: str, repository_id: int)
     return result.scalar_one_or_none()
 
 async def get_last_issue_with_null_parent(session: AsyncSession, repository_id: int) -> Optional[Issue]:
-    """Get the most recent issue where the previous issue number doesn't exist."""
+    """Get the most recent issue where the previous issue number doesn't exist in both Issue and DeletedIssue tables."""
     issue_alias = alias(Issue)
+    deleted_issue_alias = alias(DeletedIssue)
     subq = (
         select(func.max(Issue.number))
         .where(and_(
@@ -104,6 +105,13 @@ async def get_last_issue_with_null_parent(session: AsyncSession, repository_id: 
                 .where(and_(
                     issue_alias.c.repository_id == Issue.repository_id,
                     issue_alias.c.number == Issue.number - 1
+                ))
+            ),
+            ~exists(
+                select(1)
+                .where(and_(
+                    deleted_issue_alias.c.repository_id == Issue.repository_id,
+                    deleted_issue_alias.c.number == Issue.number - 1
                 ))
             )
         ))
