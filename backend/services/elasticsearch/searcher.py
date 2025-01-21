@@ -16,6 +16,12 @@ class Searcher:
         self.client = client
         self.index_manager = IndexManager(client)
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.client.close()
+
     async def search_commits(
         self, 
         query: str, 

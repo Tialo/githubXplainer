@@ -113,14 +113,14 @@ async def initialize_elasticsearch(
     """Initialize Elasticsearch indices with data from PostgreSQL."""
     try:
         es_client = await get_elasticsearch_client()
-        searcher = Searcher(es_client)
-        await searcher.initialize_elasticsearch(session)
-        
-        return ElasticsearchInitResponse(
-            status="success",
-            indices_initialized=3,  # commits, issues, pull_requests
-            message="Successfully initialized Elasticsearch indices with PostgreSQL data"
-        )
+        async with Searcher(es_client) as searcher:
+            await searcher.initialize_elasticsearch(session)
+            
+            return ElasticsearchInitResponse(
+                status="success",
+                indices_initialized=3,  # commits, issues, pull_requests
+                message="Successfully initialized Elasticsearch indices with PostgreSQL data"
+            )
     except Exception as e:
         error_detail = {
             "type": type(e).__name__,
@@ -138,14 +138,14 @@ async def search_all_content(query: SearchQuery):
     """Search across commits, issues, and pull requests."""
     try:
         es_client = await get_elasticsearch_client()
-        searcher = Searcher(es_client)
-        results = await searcher.search_all(
-            query.query,
-            query.repository_id,
-            query.from_date,
-            query.size
-        )
-        return results
+        async with Searcher(es_client) as searcher:
+            results = await searcher.search_all(
+                query.query,
+                query.repository_id,
+                query.from_date,
+                query.size
+            )
+            return results
     except Exception as e:
         logger.error(f"Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -158,37 +158,36 @@ async def search_content(
     """Search specific content type with filters."""
     try:
         es_client = await get_elasticsearch_client()
-        searcher = Searcher(es_client)
-        
-        if content_type == "commits":
-            results = await searcher.search_commits(
-                query.query, 
-                query.repository_id,
-                query.from_date,
-                query.size
-            )
-        elif content_type == "issues":
-            results = await searcher.search_issues(
-                query.query,
-                query.repository_id,
-                query.state,
-                query.labels,
-                query.from_date,
-                query.size
-            )
-        elif content_type == "pull_requests":
-            results = await searcher.search_pull_requests(
-                query.query,
-                query.repository_id,
-                query.state,
-                query.base_branch,
-                query.from_date,
-                query.size
-            )
-        else:
-            raise HTTPException(status_code=400, detail="Invalid content type")
-        
-        return results
+        async with Searcher(es_client) as searcher:
+            if content_type == "commits":
+                results = await searcher.search_commits(
+                    query.query, 
+                    query.repository_id,
+                    query.from_date,
+                    query.size
+                )
+            elif content_type == "issues":
+                results = await searcher.search_issues(
+                    query.query,
+                    query.repository_id,
+                    query.state,
+                    query.labels,
+                    query.from_date,
+                    query.size
+                )
+            elif content_type == "pull_requests":
+                results = await searcher.search_pull_requests(
+                    query.query,
+                    query.repository_id,
+                    query.state,
+                    query.base_branch,
+                    query.from_date,
+                    query.size
+                )
+            else:
+                raise HTTPException(status_code=400, detail="Invalid content type")
+            
+            return results
     except Exception as e:
         logger.error(f"Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -202,14 +201,14 @@ async def find_similar(query: SimilaritySearchQuery):
         
         logger.info(f"Searching for similar {query.content_type} based on: {query.text}")
         es_client = await get_elasticsearch_client()
-        searcher = Searcher(es_client)
-        results = await searcher.suggest_similar(
-            query.text,
-            query.content_type,
-            query.repository_id,
-            query.size
-        )
-        return results
+        async with Searcher(es_client) as searcher:
+            results = await searcher.suggest_similar(
+                query.text,
+                query.content_type,
+                query.repository_id,
+                query.size
+            )
+            return results
     except Exception as e:
         logger.error(f"Similarity search error: {str(e)}")
         error_detail = {
