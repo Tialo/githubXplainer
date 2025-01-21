@@ -22,20 +22,17 @@ services:
       - elasticsearch_data:/usr/share/elasticsearch/data
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=developer
-      - RABBITMQ_DEFAULT_PASS=devpassword
 
   flower:
     image: mher/flower
     environment:
-      - CELERY_BROKER_URL=amqp://developer:devpassword@rabbitmq:5672//
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
     ports:
       - "5555:5555"
     depends_on:

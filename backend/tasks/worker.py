@@ -1,11 +1,8 @@
-import os
-from backend.config.settings import get_settings
 from celery import Celery
 
 # Initialize Celery app
 celery_app = Celery(
     'githubxplainer',
-    broker=get_settings().celery_broker_url,
     include=['backend.tasks.summary_tasks']
 )
 
