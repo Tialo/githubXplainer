@@ -13,7 +13,7 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from backend.config.settings import get_settings
-import asyncio
+from backend.tasks.summary_tasks import process_missing_summaries_task
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +42,16 @@ async def periodic_repository_update():
     except Exception as e:
         logger.error(f"Error in periodic update: {str(e)}")
 
+async def process_missing_summaries():
+    """Periodically check for and process commits without summaries."""
+    try:
+        result = process_missing_summaries_task.delay()
+        commits_queued = result.get()
+        if commits_queued > 0:
+            logger.info(f"Queued {commits_queued} commits for summary generation")
+    except Exception as e:
+        logger.error(f"Error in summary processing scheduler: {str(e)}")
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize the database and scheduler on app startup."""
@@ -57,6 +67,16 @@ async def startup_event():
             name=f'Update repositories every {settings.repository_update_interval} minutes',
             replace_existing=True
         )
+
+        # Add new task for processing missing summaries
+        scheduler.add_job(
+            process_missing_summaries,
+            trigger=IntervalTrigger(minutes=15),  # Run every 15 minutes
+            id='process_missing_summaries',
+            name='Process commits without summaries',
+            replace_existing=True
+        )
+        
         scheduler.start()
 
 @app.on_event("shutdown")

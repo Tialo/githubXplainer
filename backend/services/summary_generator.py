@@ -24,6 +24,19 @@ def get_commit_data(db: Session, commit_id: int) -> tuple[Commit, List[CommitDif
     
     return commit, diffs, pr
 
+def get_commits_without_summaries(db: Session) -> List[int]:
+    """
+    Find all commit IDs that don't have corresponding summaries
+    """
+    query = """
+        SELECT c.id 
+        FROM commits c 
+        LEFT JOIN commit_summaries cs ON c.id = cs.commit_id 
+        WHERE cs.id IS NULL
+    """
+    result = db.execute(query)
+    return [row[0] for row in result]
+
 def generate_commit_summary(commit_id: int, db: Session) -> str:
     """
     Generate a summary for a commit based on its data, diffs, and related PR
