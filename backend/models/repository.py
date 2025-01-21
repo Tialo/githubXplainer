@@ -113,6 +113,13 @@ class Issue(Base):
             labels=",".join(label["name"] for label in data["labels"]),
             is_pull_request="pull_request" in data,
         )
+    
+class DeletedIssue(Base):
+    __tablename__ = "deleted_issues"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    number = Column(Integer)
+    repository_id = Column(Integer, ForeignKey("repositories.id"))
 
 class IssueComment(Base):
     __tablename__ = "issue_comments"

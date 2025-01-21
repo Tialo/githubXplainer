@@ -75,7 +75,8 @@ class GitHubService:
         try:
             return await self._make_request(f"repos/{owner}/{repo}/issues/{number}")
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
+            # some deleted issues return 404, some return 410
+            if e.response.status_code in [404, 410]:
                 return None
             raise
 

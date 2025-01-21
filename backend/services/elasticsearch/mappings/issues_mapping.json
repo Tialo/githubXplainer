@@ -22,6 +22,12 @@
           },
           "labels": {
             "type": "keyword"
+          },
+          "is_pull_request": {
+            "type": "boolean"
+          },
+          "base_branch": {
+            "type": "keyword"
           }
         }
       }

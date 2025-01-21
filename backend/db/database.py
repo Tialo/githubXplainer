@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff
+from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue
 from backend.models.base import Base
 from sqlalchemy.ext.asyncio import create_async_engine
 from backend.config.settings import settings
@@ -23,6 +23,10 @@ async def save_issue(session: AsyncSession, issue: Issue) -> Issue:
     await session.flush()  # Ensure ID is generated
     await session.refresh(issue)  # Load the generated ID
     return issue
+
+async def save_deleted_issue(session: AsyncSession, deleted_issue: DeletedIssue) -> DeletedIssue:
+    session.add(deleted_issue)
+    return deleted_issue
 
 async def save_issue_comment(session: AsyncSession, comment: IssueComment) -> IssueComment:
     session.add(comment)
@@ -89,8 +93,9 @@ async def get_commit_by_sha(session: AsyncSession, sha: str, repository_id: int)
     return result.scalar_one_or_none()
 
 async def get_last_issue_with_null_parent(session: AsyncSession, repository_id: int) -> Optional[Issue]:
-    """Get the most recent issue where the previous issue number doesn't exist."""
+    """Get the most recent issue where the previous issue number doesn't exist in both Issue and DeletedIssue tables."""
     issue_alias = alias(Issue)
+    deleted_issue_alias = alias(DeletedIssue)
     subq = (
         select(func.max(Issue.number))
         .where(and_(
@@ -100,6 +105,13 @@ async def get_last_issue_with_null_parent(session: AsyncSession, repository_id: 
                 .where(and_(
                     issue_alias.c.repository_id == Issue.repository_id,
                     issue_alias.c.number == Issue.number - 1
+                ))
+            ),
+            ~exists(
+                select(1)
+                .where(and_(
+                    deleted_issue_alias.c.repository_id == Issue.repository_id,
+                    deleted_issue_alias.c.number == Issue.number - 1
                 ))
             )
         ))
@@ -125,6 +137,17 @@ async def get_issue_by_number(session: AsyncSession, number: int, repository_id:
     )
     return result.scalar_one_or_none()
 
+async def get_deleted_issue_by_number(session: AsyncSession, number: int, repository_id: int) -> Optional[DeletedIssue]:
+    """Get deleted issue by its number."""
+    result = await session.execute(
+        select(DeletedIssue)
+        .where(and_(
+            DeletedIssue.number == number,
+            DeletedIssue.repository_id == repository_id
+        ))
+    )
+    return result.scalar_one_or_none()
+
 async def get_repository_by_owner_and_name(session: AsyncSession, owner: str, name: str) -> Optional[Repository]:
     """Get repository by owner and name."""
     result = await session.execute(
@@ -135,3 +158,21 @@ async def get_repository_by_owner_and_name(session: AsyncSession, owner: str, na
         ))
     )
     return result.scalar_one_or_none()
+
+
+if __name__ == "__main__":
+    import asyncio
+    from sqlalchemy.orm import sessionmaker
+    
+    async def test_get_last_issue_with_null_parent():
+        engine = create_async_engine(settings.database_url)
+        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        
+        async with async_session() as session:
+                
+            # Test the function
+            result = await get_last_issue_with_null_parent(session, 1)
+            print(result.id, result.number)
+
+    # Run the test
+    asyncio.run(test_get_last_issue_with_null_parent())
