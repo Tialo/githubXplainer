@@ -13,6 +13,11 @@ logger = get_logger(__name__)
 logging.disable(logging.WARNING)
 logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 
+
+def log_info(msg):
+    logger.info(f"[{datetime.now()}] {__name__} {msg}")
+
+
 class SummaryService:
     def __init__(self):
         self.vector_store = VectorStore()
@@ -26,11 +31,10 @@ class SummaryService:
             self._shutdown_event.clear()
             self.is_running = True
             self.task = asyncio.create_task(self._run_summary_loop())
-            logger.info("Summary generation service started")
+            log_info("Summary generation service started")
 
     async def stop(self):
         """Stop the summary generation background task"""
-        logger.info("Stopping summary generation service...")
         self.is_running = False
         self._shutdown_event.set()
         if self.task:
@@ -69,11 +73,12 @@ class SummaryService:
                                     "date": commit.commit_date.isoformat()
                                 }
                             )
-                            logger.info(f"Generated summary for commit {commit_id}")
+                            log_info(f"Generated summary for commit {commit_id}")
 
                     # Process README summaries
                     for repo_id in get_readme_without_summaries(db):
                         await self._process_readme_summary(db, repo_id)
+                        log_info(f"Generated README summary for repository {repo_id}")
 
                 finally:
                     db.close()

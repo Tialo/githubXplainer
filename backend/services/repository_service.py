@@ -1,4 +1,5 @@
 from typing import Tuple, List, Dict
+from backend.config.settings import settings
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.github_service import GitHubService
@@ -16,8 +17,8 @@ from backend.db.database import (
 class RepositoryService:
     def __init__(self):
         self.github = GitHubService()
-        self.max_items = 10
-        self.update_fetch_items = 5
+        self.max_items = settings.inital_fetch_limit
+        self.update_fetch_items = settings.fetch_limit
 
     async def _process_commits_batch(
         self,
@@ -30,7 +31,7 @@ class RepositoryService:
         for i, commit_data in enumerate(commits_data):
             existing_commit = await get_commit_by_sha(session, commit_data["sha"], repository.id)
             if i == 0 and existing_commit and existing_commit.parent_sha is None:
-                await update_commit_attributes(session, existing_commit.id, parent_sha=commit_data["parents"][0]["sha"] if "parents" in commit_data else None)
+                await update_commit_attributes(session, existing_commit.id, parent_sha=commit_data["parents"][0]["sha"] if commit_data.get("parents") else None)
             if existing_commit:
                 continue
 

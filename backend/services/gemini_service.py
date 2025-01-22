@@ -15,7 +15,14 @@ class GeminiService:
         with open(prompt_path, 'r') as f:
             self.prompt_template = f.read()
 
-    async def summarize_results(self, query: str, results: list, commits: list[Commit], repository: Repository) -> str:
+    async def summarize_results(
+        self,
+        query: str,
+        results: list,
+        commits: list[Commit],
+        repository: Repository,
+        model_name: str = "gemini-2.0-flash-exp"
+    ) -> str:
         commit_summaries = []
         
         # Then format the results with commit links only for relevant commits
@@ -32,7 +39,7 @@ class GeminiService:
             commit_summaries_with_links="\n\n".join(commit_summaries)
         )
 
-        response = await self.client.aio.models.generate_content(model="gemini-2.0-flash-exp", contents=prompt)
+        response = await self.client.aio.models.generate_content(model=model_name, contents=prompt)
         return response.text, prompt
 
 gemini_service = GeminiService()

@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     debug: bool = True
 
+    inital_fetch_limit: int = 10
+    fetch_limit: int = 20
+
     # Scheduler settings
     repository_update_interval: int = 5
     use_scheduler: bool = True

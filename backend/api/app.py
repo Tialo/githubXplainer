@@ -95,7 +95,7 @@ async def periodic_repository_update():
                         log_info(f"Successfully updated repository {repo.owner}/{repo.name}")
                         log_info(f"Commits processed: {commits_count}, Issues processed: {issues_count}")
                     except Exception as e:
-                        log_error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
+                        log_error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}, {traceback.format_exc()}")
                         # Don't continue, rollback the entire transaction
                         raise
     except Exception as e:
@@ -114,6 +114,7 @@ async def startup_event():
     await init_db()
     
     # Start summary generation service
+    log_info("Starting summary generation service...")
     await summary_service.start()
     
     if settings.use_scheduler:

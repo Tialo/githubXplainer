@@ -81,7 +81,7 @@ class Commit(Base):
     @classmethod
     def from_github_data(cls, data: dict, repository_id: int, set_null_parent: bool = False):
         commit = data["commit"]
-        parent_sha = None if set_null_parent else (data["parents"][0]["sha"] if "parents" in data else None)
+        parent_sha = None if set_null_parent else (data["parents"][0]["sha"] if data.get("parents") else None)
         return cls(
             github_sha=data["sha"],
             parent_sha=parent_sha,

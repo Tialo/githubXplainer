@@ -19,11 +19,6 @@ pip install -r requirements.txt
 # 1. Start infrastructure services first
 docker-compose up
 
-# 3. Start RQ worker (in a separate terminal)
-# RQ must be started before the API server since it processes the background tasks
-python -m backend.tasks.summary_tasks
-
-# 4. Finally, start the API server (in another separate terminal)
 uvicorn backend.api.app:app --reload --log-level=info
 ```
 
