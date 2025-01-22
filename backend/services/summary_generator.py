@@ -125,6 +125,7 @@ def save_commit_summary(db: Session, commit_id: int) -> None:
         db.add(commit_summary)
     
     db.commit()
+    return summary
 
 
 if __name__ == '__main__':

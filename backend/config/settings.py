@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     LLM_DIFF_SUMMARIZER: str = "deepseek-r1:8b"
     LLM_CHUNK_SUMMARIZER: str = "deepseek-r1:14b-qwen-distill-q4_K_M"
 
+    OPENAI_API_KEY: str = None
+    OPENAI_API_BASE: str = None
+
     class Config:
         env_file = ".env"
 

@@ -5,11 +5,14 @@ from backend.services.readme_summarizer import ReadmeSummarizer
 from backend.models.repository import ReadmeSummary, Repository
 from backend.utils.logger import get_logger
 from datetime import datetime
+from backend.services.vector_store import VectorStore
 
 logger = get_logger(__name__)
 logger.setLevel(logging.INFO)
 logging.disable(logging.WARNING)
 logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
+
+vector_store = VectorStore()
 
 def log_info(text, *params):
     print(f"[{datetime.now()}] {text % params}")
@@ -26,8 +29,14 @@ def generate_commit_summary_task(commit_id: int) -> None:
     log_info(f"Generating summary for commit {commit_id}")
     db = SessionLocal()
     try:
-        save_commit_summary(db, commit_id)
-        log_info(f"Successfully generated summary for commit {commit_id}")
+        summary = save_commit_summary(db, commit_id)
+        if summary is not None:
+            # Store summary embedding
+            vector_store.add_summary(
+                summary,
+                {"type": "commit", "commit_id": commit_id}
+            )
+            log_info(f"Successfully generated summary and embedding for commit {commit_id}")
     except Exception as e:
         log_error(f"Error generating summary for commit {commit_id}: {str(e)}")
         raise

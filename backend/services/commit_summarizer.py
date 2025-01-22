@@ -50,7 +50,7 @@ class RepositoryContext:
         return self.readme_summary.summarization if self.readme_summary else "No domain information available"
 
 class LLMSummarizer:
-    def __init__(self, max_group_size: int = 5000):
+    def __init__(self, max_group_size: int = 25000):
         self.max_group_size = max_group_size
         self.repo_context = None
 
