@@ -19,7 +19,7 @@ class CommitNotFoundError(Exception):
 def get_commit_data(
     db: Session, 
     commit_id: int
-) -> tuple[Commit, List[CommitDiff], Optional[Issue], List[RepositoryLanguage], Optional[ReadmeSummary], str]:
+) -> tuple[Commit, List[CommitDiff], Optional[Issue], List[RepositoryLanguage], Optional[ReadmeSummary], Repository]:
     """
     Retrieve commit data with related diffs, PR information, repository languages and readme summary
     Returns tuple: (commit, diffs, pr, languages, readme_summary, repo_path)
@@ -55,9 +55,8 @@ def get_commit_data(
     
     # Get repository info
     repository = db.query(Repository).filter(Repository.id == commit.repository_id).first()
-    repo_path = f"{repository.owner}/{repository.name}"
     
-    return commit, diffs, pr, languages, readme_summary, repo_path
+    return commit, diffs, pr, languages, readme_summary, repository
 
 def get_commits_without_summaries(db: Session) -> List[int]:
     """
@@ -85,19 +84,19 @@ def get_readme_without_summaries(db: Session) -> List[int]:
     result = db.execute(query)
     return [row[0] for row in result]
 
-def generate_commit_summary(commit_id: int, db: Session) -> str:
+def generate_commit_summary(commit_id: int, db: Session) -> Tuple[str, Repository]:
     """
     Generate a summary for a commit based on its data, diffs, PR, and repository context
     """
-    commit, diffs, pr, languages, readme_summary, repo_path = get_commit_data(db, commit_id)
+    commit, diffs, pr, languages, readme_summary, repository = get_commit_data(db, commit_id)
     
     summarizer = LLMSummarizer()
     return summarizer.summarize_commit(
         diffs=diffs,
         languages=languages,
         readme_summary=readme_summary,
-        repo_path=repo_path
-    )
+        repository=repository,
+    ), repository
 
 def save_commit_summary(db: Session, commit_id: int) -> None:
     """
@@ -111,7 +110,7 @@ def save_commit_summary(db: Session, commit_id: int) -> None:
         return
     
     try:
-        summary = generate_commit_summary(commit_id, db)
+        summary, repo = generate_commit_summary(commit_id, db)
     except CommitNotFoundError:
         logger.error(f"Commit with id {commit_id} not found")
         return
@@ -125,7 +124,7 @@ def save_commit_summary(db: Session, commit_id: int) -> None:
         db.add(commit_summary)
     
     db.commit()
-    return summary
+    return summary, repo
 
 
 if __name__ == '__main__':

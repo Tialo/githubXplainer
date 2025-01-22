@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional
 from dataclasses import dataclass
-from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary
+from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary, Repository
 from ollama import Client
 from datetime import datetime
 import re
@@ -142,7 +142,8 @@ class LLMSummarizer:
         )
         return self.clean_summary(response.message.content)
 
-    def summarize_commit(self, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repo_path: str = "") -> str:
+    def summarize_commit(self, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repository: Repository = None) -> str:
+        repo_path = f"{repository.owner}/{repository.name}"
         log_info("Summarizing commit diffs, repo %s", repo_path)
         
         self.set_repository_context(languages, readme_summary, repo_path)

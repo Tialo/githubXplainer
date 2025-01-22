@@ -58,11 +58,11 @@ class SummaryService:
                 try:
                     # Process commit summaries
                     for commit_id in get_commits_without_summaries(db):
-                        summary = save_commit_summary(db, commit_id)
+                        summary, repo = save_commit_summary(db, commit_id)
                         if summary:
                             self.vector_store.add_summary(
                                 summary,
-                                {"type": "commit", "commit_id": commit_id}
+                                {"type": "commit", "commit_id": commit_id, "repo_id": repo.id}
                             )
                             logger.info(f"Generated summary for commit {commit_id}")
 
