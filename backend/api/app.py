@@ -42,22 +42,11 @@ async def startup_event():
     await init_db()
     
     if settings.use_scheduler:
-        # Schedule unified summary processing every 2 minutes
         scheduler.add_job(
             summary_service.process_all_summaries,
-            trigger=IntervalTrigger(minutes=2),
+            trigger=IntervalTrigger(seconds=2),
             id='summary_processor',
             name='Process all summaries',
-            replace_existing=True,
-            max_instances=1
-        )
-        
-        # Repository update job
-        scheduler.add_job(
-            summary_service.periodic_repository_update,
-            trigger=IntervalTrigger(minutes=2),
-            id='repository_updater',
-            name='Repository periodic update',
             replace_existing=True,
             max_instances=1
         )

@@ -1,94 +1,94 @@
 from typing import Optional, List, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.repository import (
     Commit, CommitDiff, Issue, RepositoryLanguage,
-    ReadmeSummary, Repository
+    ReadmeSummary, Repository, CommitSummary
 )
 from backend.utils.logger import get_logger
-from backend.db.database import SessionLocal
+from backend.config.settings import async_session
 from .commit_summarizer import LLMSummarizer
 
-
 logger = get_logger(__name__)
-
 
 class CommitNotFoundError(Exception):
     pass
 
-def get_commit_data(
-    db: Session, 
+async def get_commit_data(
+    db: AsyncSession, 
     commit_id: int
 ) -> tuple[Commit, List[CommitDiff], Optional[Issue], List[RepositoryLanguage], Optional[ReadmeSummary], Repository]:
     """
     Retrieve commit data with related diffs, PR information, repository languages and readme summary
-    Returns tuple: (commit, diffs, pr, languages, readme_summary, repo_path)
     """
-    commit = db.query(Commit)\
-        .join(Repository)\
-        .filter(Commit.id == commit_id)\
-        .first()
+    result = await db.execute(
+        select(Commit)
+        .join(Repository)
+        .filter(Commit.id == commit_id)
+    )
+    commit = result.scalar_one_or_none()
     if not commit:
         raise CommitNotFoundError(f"Commit with id {commit_id} not found")
     
     # Get all diffs for the commit
-    diffs = db.query(CommitDiff).filter(CommitDiff.commit_id == commit_id).all()
+    result = await db.execute(
+        select(CommitDiff).filter(CommitDiff.commit_id == commit_id)
+    )
+    diffs = result.scalars().all()
     
     # Get related PR if exists
     pr = None
     if commit.pull_request_number:
-        pr = db.query(Issue).filter(
-            Issue.repository_id == commit.repository_id,
-            Issue.number == commit.pull_request_number,
-            Issue.is_pull_request == True
-        ).first()
+        result = await db.execute(
+            select(Issue).filter(
+                Issue.repository_id == commit.repository_id,
+                Issue.number == commit.pull_request_number,
+                Issue.is_pull_request == True
+            )
+        )
+        pr = result.scalar_one_or_none()
     
     # Get repository languages
-    languages = db.query(RepositoryLanguage).filter(
-        RepositoryLanguage.repository_id == commit.repository_id
-    ).all()
+    result = await db.execute(
+        select(RepositoryLanguage).filter(
+            RepositoryLanguage.repository_id == commit.repository_id
+        )
+    )
+    languages = result.scalars().all()
     
     # Get readme summary
-    readme_summary = db.query(ReadmeSummary).filter(
-        ReadmeSummary.repository_id == commit.repository_id
-    ).first()
+    result = await db.execute(
+        select(ReadmeSummary).filter(
+            ReadmeSummary.repository_id == commit.repository_id
+        )
+    )
+    readme_summary = result.scalar_one_or_none()
     
     # Get repository info
-    repository = db.query(Repository).filter(Repository.id == commit.repository_id).first()
+    result = await db.execute(
+        select(Repository).filter(Repository.id == commit.repository_id)
+    )
+    repository = result.scalar_one_or_none()
     
     return commit, diffs, pr, languages, readme_summary, repository
 
-def get_commits_without_summaries(db: Session) -> List[int]:
-    """
-    Find all commit IDs that don't have corresponding summaries
-    """
-    query = text("""
-        SELECT c.id 
-        FROM commits c 
-        LEFT JOIN commit_summaries cs ON c.id = cs.commit_id 
-        WHERE cs.id IS NULL limit 5
-    """)
-    result = db.execute(query)
-    return [row[0] for row in result]
+async def get_commits_without_summaries(db: AsyncSession) -> List[int]:
+    """Find all commit IDs that don't have corresponding summaries"""
+    result = await db.execute(
+        text("SELECT c.id FROM commits c LEFT JOIN commit_summaries cs ON c.id = cs.commit_id WHERE cs.id IS NULL limit 5")
+    )
+    return [row[0] for row in result.all()]
 
-def get_readme_without_summaries(db: Session) -> List[int]:
-    """
-    Find all repositories with READMEs that don't have corresponding summaries
-    """
-    query = text("""
-        SELECT r.id 
-        FROM repositories r 
-        LEFT JOIN readme_summaries rs ON r.id = rs.repository_id 
-        WHERE rs.id IS NULL
-    """)
-    result = db.execute(query)
-    return [row[0] for row in result]
+async def get_readme_without_summaries(db: AsyncSession) -> List[int]:
+    """Find all repositories with READMEs that don't have corresponding summaries"""
+    result = await db.execute(
+        text("SELECT r.id FROM repositories r LEFT JOIN readme_summaries rs ON r.id = rs.repository_id WHERE rs.id IS NULL")
+    )
+    return [row[0] for row in result.all()]
 
-def generate_commit_summary(commit_id: int, db: Session) -> Tuple[str, Repository]:
-    """
-    Generate a summary for a commit based on its data, diffs, PR, and repository context
-    """
-    commit, diffs, pr, languages, readme_summary, repository = get_commit_data(db, commit_id)
+async def generate_commit_summary(commit_id: int, db: AsyncSession) -> Tuple[str, Repository]:
+    """Generate a summary for a commit based on its data"""
+    commit, diffs, pr, languages, readme_summary, repository = await get_commit_data(db, commit_id)
     
     summarizer = LLMSummarizer()
     return summarizer.summarize_commit(
@@ -98,35 +98,32 @@ def generate_commit_summary(commit_id: int, db: Session) -> Tuple[str, Repositor
         repository=repository,
     ), repository, commit
 
-def save_commit_summary(db: Session, commit_id: int) -> None:
-    """
-    Generate and save commit summary to the database
-    """
-    from backend.models.repository import CommitSummary
-
-    # if commit has summary then return
-    commit_summary = db.query(CommitSummary).filter(CommitSummary.commit_id == commit_id).first()
-    if commit_summary:
+async def save_commit_summary(db: AsyncSession, commit_id: int) -> None:
+    """Generate and save commit summary to the database"""
+    # Check for existing summary
+    result = await db.execute(
+        select(CommitSummary).filter(CommitSummary.commit_id == commit_id)
+    )
+    if result.scalar_one_or_none():
         return
     
     try:
-        summary, repo, commit = generate_commit_summary(commit_id, db)
+        summary, repo, commit = await generate_commit_summary(commit_id, db)
     except CommitNotFoundError:
         logger.error(f"Commit with id {commit_id} not found")
         return
     
-    # Create or update summary
-    commit_summary = db.query(CommitSummary).filter(CommitSummary.commit_id == commit_id).first()
-    if commit_summary:
-        commit_summary.summary = summary
-    else:
-        commit_summary = CommitSummary(commit_id=commit_id, summary=summary)
-        db.add(commit_summary)
-    
-    db.commit()
+    commit_summary = CommitSummary(commit_id=commit_id, summary=summary)
+    db.add(commit_summary)
+    await db.commit()
     return summary, repo, commit
 
-
 if __name__ == '__main__':
-    db = SessionLocal()
-    print(get_commits_without_summaries(db))
+    import asyncio
+    
+    async def main():
+        async with async_session() as session:
+            result = await get_commits_without_summaries(session)
+            print(result)
+    
+    asyncio.run(main())

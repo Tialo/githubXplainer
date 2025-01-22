@@ -7,7 +7,6 @@ from backend.services.summary_generator import save_commit_summary, get_commits_
 from backend.services.readme_summarizer import ReadmeSummarizer
 from backend.models.repository import ReadmeSummary, Repository
 from backend.services.vector_store import VectorStore
-from backend.db.database import async_session
 from backend.config.settings import async_session
 from backend.services.repository_service import repository_service
 
@@ -17,7 +16,7 @@ logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 
 
 def log_info(msg):
-    logger.info(f"[{datetime.now()}] {__name__} {msg}")
+    print(f"[{datetime.now()}] {__name__} {msg}")
 
 
 class SummaryService:
