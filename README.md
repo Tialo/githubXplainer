@@ -48,7 +48,7 @@ curl -X POST http://localhost:8000/elasticsearch/clear
 
 curl -X POST http://localhost:8000/search/faiss \
 -H "Content-Type: application/json" \
--d '{"query": "what where last bugfixes"}'
+-d '{"query": "what where last bugfixes", "owner": "openai", "name": "tiktoken"}'
 
 curl -X DELETE http://localhost:8000/repos/delete \
 -H "Content-Type: application/json" \

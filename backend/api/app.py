@@ -18,6 +18,7 @@ from redis import Redis
 from backend.utils.logger import get_logger
 from backend.services.vector_store import VectorStore
 from backend.services.summary_service import summary_service
+from backend.db.database import get_repository_by_owner_and_name
 
 logger = get_logger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -193,11 +194,12 @@ class RepositoryDelete(BaseModel):
 class FAISSSimilarityQuery(BaseModel):
     query: str
     k: Optional[int] = 5
+    owner: str
+    name: str
 
 class FAISSSimilarityResult(BaseModel):
     text: str
     metadata: dict
-    score: float
     search_time: float
     load_time: float
 
@@ -412,22 +414,41 @@ async def find_similar(query: SimilaritySearchQuery):
         )
 
 @app.post("/search/faiss", response_model=List[FAISSSimilarityResult])
-async def search_faiss_similar(query: FAISSSimilarityQuery):
+async def search_faiss_similar(
+    query: FAISSSimilarityQuery,
+    session: AsyncSession = Depends(get_session)
+):
     """Find similar items using FAISS vector similarity."""
     try:
+        # Get repository ID from owner and name
+        repository = await get_repository_by_owner_and_name(
+            session,
+            query.owner,
+            query.name
+        )
+        if not repository:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Repository {query.owner}/{query.name} not found"
+            )
+
         import time
         start = time.time()
         vector_store = VectorStore()
         loaded_in = time.time() - start
+            
         start = time.time()
-        results = vector_store.search_similar(query.query, k=query.k)
+        results = vector_store.search_similar(
+            query.query, 
+            k=query.k,
+            filter={"repo_id": repository.id}
+        )
         search_time = time.time() - start
         
         return [
             FAISSSimilarityResult(
-                text="",
+                text=doc.page_content,
                 metadata=doc.metadata,
-                score=0.0,
                 search_time=search_time,
                 load_time=loaded_in
             ) 

@@ -52,5 +52,5 @@ class VectorStore:
         self.store.save_local(self.store_path)
         print(time.time() - now, "FAISS SAVED IN")
 
-    def search_similar(self, query: str, k: int = 5, filter_metadata: dict = None):
-        return self.store.similarity_search(query, k=k, filter_metadata=filter_metadata)
+    def search_similar(self, query: str, k: int = 5, filter: dict = None):
+        return self.store.similarity_search(query, k=k, filter=filter)
