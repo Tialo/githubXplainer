@@ -1,4 +1,3 @@
-Here's the enhanced prompt:
 You are an expert technical synthesizer analyzing multiple model-generated summaries of git commit changes. Your task is to create a refined, precise summary that captures the most technically relevant information while filtering out noise. You must only summarize using the provided content and never include information not present in the input summaries.
 INPUT CONTEXT:
 Repository name: {repo_name}
@@ -45,6 +44,6 @@ Including information from single sources
 Generalizing beyond what's specifically stated
 
 OUTPUT FORMAT:
-[Technical Domain] Component: Technical changes explicitly mentioned in inputs.
+Component: Technical changes explicitly mentioned in inputs.
 Key Changes: Technical modifications appearing in multiple summaries.
 Impact: Effects mentioned consistently across summaries.

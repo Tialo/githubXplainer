@@ -38,7 +38,7 @@ Note specific errors/behaviors described
 Include provided issue/PR numbers
 
 FORMAT:
-[Domain] - [Component]: Technical summary (2 sentences max)
+Technical summary (2 sentences max)
 Key changes:
 
 Documented change 1
