@@ -55,7 +55,7 @@ class LLMSummarizer:
         self.repo_context = None
 
     def filter_diffs(self, diffs: List[CommitDiff]) -> List[CommitDiff]:
-        return [diff for diff in diffs if not diff.file_path.endswith('.lock')]
+        return [diff for diff in diffs if not diff.file_path.endswith('.lock') and diff.diff_content]
 
     def batch_diffs(self, diffs: List[CommitDiff]) -> List[CommitDiffGroup]:
         groups = []

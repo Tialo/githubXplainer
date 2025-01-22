@@ -6,13 +6,31 @@ import os
 import time
 import faiss
 from langchain_core.documents import Document
+from pathlib import Path
+import logging
+
+logging.disable(logging.WARNING)
+logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 
 class VectorStore:
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(VectorStore, cls).__new__(cls)
+            cls._instance.initialized = False
+        return cls._instance
+
     def __init__(self):
+        if self.initialized:
+            return
+            
         self.embeddings = OpenAIEmbeddings(api_key=settings.OPENAI_API_KEY, openai_api_base=settings.OPENAI_API_BASE)
         self.index = faiss.IndexFlatL2(len(self.embeddings.embed_query("123")))
-        self.store_path = "vector_store"
+        # Use absolute path in project root
+        self.store_path = str(Path(__file__).parent.parent.parent / "vector_store")
         self._load_or_create_store()
+        self.initialized = True
 
     def _load_or_create_store(self):
         if os.path.exists(self.store_path):

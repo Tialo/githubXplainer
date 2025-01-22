@@ -15,6 +15,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from redis import Redis
 from backend.utils.logger import get_logger
+from backend.services.vector_store import VectorStore
+from backend.services.summary_service import summary_service
 
 logger = get_logger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -81,8 +83,11 @@ async def periodic_repository_update():
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the database and scheduler on app startup."""
+    """Initialize the database and services on app startup."""
     await init_db()
+    
+    # Start summary generation service
+    await summary_service.start()
     
     if settings.use_scheduler:
         # Run every 2 minutes
@@ -98,9 +103,12 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Shut down the scheduler when the app stops."""
+    """Shut down services when the app stops."""
     if settings.use_scheduler and scheduler.running:
         scheduler.shutdown(wait=False)
+    
+    # Stop summary generation service
+    await summary_service.stop()
 
 class RepositoryInit(BaseModel):
     owner: str
@@ -156,6 +164,15 @@ class SimilaritySearchResponse(BaseModel):
 class RepositoryDelete(BaseModel):
     owner: str
     repo: str
+
+class FAISSSimilarityQuery(BaseModel):
+    query: str
+    k: Optional[int] = 5
+
+class FAISSSimilarityResult(BaseModel):
+    text: str
+    metadata: dict
+    score: float
 
 @app.get("/alive")
 async def alive():
@@ -366,4 +383,23 @@ async def find_similar(query: SimilaritySearchQuery):
             status_code=500,
             detail=error_detail
         )
+
+@app.post("/search/faiss", response_model=List[FAISSSimilarityResult])
+async def search_faiss_similar(query: FAISSSimilarityQuery):
+    """Find similar items using FAISS vector similarity."""
+    try:
+        vector_store = VectorStore()
+        results = vector_store.search_similar(query.query, k=query.k)
+        
+        return [
+            FAISSSimilarityResult(
+                text=doc.page_content,
+                metadata=doc.metadata,
+                score=0.0  # FAISS doesn't return scores directly
+            ) 
+            for doc in results
+        ]
+    except Exception as e:
+        log_error(f"FAISS search error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
