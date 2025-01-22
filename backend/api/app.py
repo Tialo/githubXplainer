@@ -36,7 +36,7 @@ app = FastAPI(title="GitHub Xplainer")
 
 # Add these variables after the app initialization
 scheduler = AsyncIOScheduler()
-shutdown_event = asyncio.Event()
+ashutdown_event = asyncio.Event()
 
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
@@ -46,7 +46,7 @@ def signal_handler(signum, frame):
 async def shutdown():
     """Coordinate graceful shutdown of all services"""
     logger.info("Initiating graceful shutdown...")
-    shutdown_event.set()
+    ashutdown_event.set()
     
     # Stop the scheduler
     if settings.use_scheduler and scheduler.running:
@@ -121,7 +121,7 @@ async def startup_event():
         # Run every 2 minutes
         scheduler.add_job(
             periodic_repository_update,
-            trigger=IntervalTrigger(seconds=12),
+            trigger=IntervalTrigger(seconds=1),
             id='repository_updater',
             name='Repository periodic update',
             replace_existing=True,

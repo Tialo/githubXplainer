@@ -52,16 +52,15 @@ class SummaryService:
 
     async def _run_summary_loop(self):
         """Main loop for summary generation"""
-        while self.is_running:
+        while self.is_running and not self._shutdown_event.is_set():
             try:
-                # Check for shutdown signal
-                if await self._shutdown_event.wait():
-                    break
-
                 db = SessionLocal()
                 try:
                     # Process commit summaries
-                    for commit_id in get_commits_without_summaries(db):
+                    commits = get_commits_without_summaries(db)
+                    for commit_id in commits:
+                        if self._shutdown_event.is_set():
+                            break
                         summary, repo, commit = save_commit_summary(db, commit_id)
                         if summary:
                             self.vector_store.add_summary(
@@ -70,24 +69,28 @@ class SummaryService:
                                     "type": "commit",
                                     "commit_id": commit_id,
                                     "repo_id": repo.id,
-                                    "date": commit.commit_date.isoformat()
+                                    "date": commit.committed_date.isoformat()
                                 }
                             )
                             log_info(f"Generated summary for commit {commit_id}")
 
-                    # Process README summaries
-                    for repo_id in get_readme_without_summaries(db):
-                        await self._process_readme_summary(db, repo_id)
-                        log_info(f"Generated README summary for repository {repo_id}")
+                    # Process README summaries if we haven't been asked to shut down
+                    if not self._shutdown_event.is_set():
+                        for repo_id in get_readme_without_summaries(db):
+                            if self._shutdown_event.is_set():
+                                break
+                            await self._process_readme_summary(db, repo_id)
+                            log_info(f"Generated README summary for repository {repo_id}")
 
                 finally:
                     db.close()
 
-                # Use wait_for with timeout to make the sleep interruptible
+                # Sleep for a short duration, but be interruptible
                 try:
                     await asyncio.wait_for(self._shutdown_event.wait(), timeout=1.0)
                 except asyncio.TimeoutError:
                     pass
+
             except Exception as e:
                 logger.error(f"Error in summary generation loop: {str(e)} {traceback.format_exc()}")
                 # Make the error backoff interruptible
