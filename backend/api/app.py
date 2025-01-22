@@ -44,7 +44,7 @@ async def startup_event():
     if settings.use_scheduler:
         scheduler.add_job(
             summary_service.process_all_summaries,
-            trigger=IntervalTrigger(seconds=2),
+            trigger=IntervalTrigger(seconds=60),
             id='summary_processor',
             name='Process all summaries',
             replace_existing=True,
@@ -125,6 +125,10 @@ class FAISSSimilarityResult(BaseModel):
     search_time: float
     load_time: float
     prompt: str
+
+class ListRepositoryResponse(BaseModel):
+    owner: str
+    name: str
 
 @app.get("/alive")
 async def alive():
@@ -396,4 +400,30 @@ async def search_faiss_similar(
     except Exception as e:
         log_error(f"FAISS search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/repos/list", response_model=List[ListRepositoryResponse])
+async def list_repositories(
+    session: AsyncSession = Depends(get_session)
+):
+    """Get a list of all initialized repositories."""
+    try:
+        repositories = await repository_service.get_all_repositories(session)
+        return [
+            ListRepositoryResponse(
+                owner=repo.owner,
+                name=repo.name
+            )
+            for repo in repositories
+        ]
+    except Exception as e:
+        error_detail = {
+            "type": type(e).__name__,
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
+        log_error(f"Error listing repositories: {error_detail}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail
+        )
 

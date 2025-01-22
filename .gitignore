@@ -6,3 +6,4 @@ venv
 backend/**/__pycache__
 logs
 vector_store
+frontend/node_modules
