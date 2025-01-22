@@ -91,7 +91,7 @@ async def generate_commit_summary(commit_id: int, db: AsyncSession) -> Tuple[str
     commit, diffs, pr, languages, readme_summary, repository = await get_commit_data(db, commit_id)
     
     summarizer = LLMSummarizer()
-    return summarizer.summarize_commit(
+    return await summarizer.summarize_commit(
         diffs=diffs,
         languages=languages,
         readme_summary=readme_summary,

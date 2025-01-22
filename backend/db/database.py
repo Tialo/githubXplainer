@@ -220,6 +220,12 @@ if __name__ == "__main__":
         
         async with async_session() as session:
             result = await session.execute(
+                text("delete FROM commit_summaries")
+            )
+            await session.commit()
+        
+        async with async_session() as session:
+            result = await session.execute(
                 text("SELECT summary FROM commit_summaries WHERE commit_id = 34")
             )
             summary = result.scalar_one_or_none()

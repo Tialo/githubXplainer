@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     LLM_README_SUMMARIZER: str = "deepseek-r1:8b"
     LLM_DIFF_SUMMARIZER: str = "deepseek-r1:8b"
     LLM_CHUNK_SUMMARIZER: str = "deepseek-r1:14b-qwen-distill-q4_K_M"
+    LLM_GEMINI_DIFF_MODEL: str = "gemini-2.0-flash-exp"
+    LLM_GEMINI_CHUNK_MODEL: str = "gemini-2.0-flash-exp"
+    LLM_USE: str = "gemini"
 
     OPENAI_API_KEY: str = None
     OPENAI_API_BASE: str = None

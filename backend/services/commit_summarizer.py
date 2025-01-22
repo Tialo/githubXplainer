@@ -2,12 +2,13 @@ import logging
 from typing import List, Optional
 from dataclasses import dataclass
 from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary, Repository
-from ollama import Client
+from ollama import AsyncClient
 from datetime import datetime
 import re
 from backend.utils.logger import get_logger
 from backend.config.settings import settings
-
+from abc import ABC, abstractmethod
+from google import genai
 
 logger = get_logger(__name__)
 logger.setLevel(logging.INFO)
@@ -49,10 +50,53 @@ class RepositoryContext:
     def get_description_str(self) -> str:
         return self.readme_summary.summarization if self.readme_summary else "No domain information available"
 
+class ModelBackend(ABC):
+    @abstractmethod
+    async def generate_content(self, system_prompt: str, user_content: str) -> str:
+        pass
+
+class OllamaBackend(ModelBackend):
+    def __init__(self, model_name: str):
+        self.client = AsyncClient()
+        self.model_name = model_name
+
+    async def generate_content(self, system_prompt: str, user_content: str) -> str:
+        response = await self.client.chat(
+            model=self.model_name,
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_content}
+            ]
+        )
+        return response.message.content
+
+class GeminiBackend(ModelBackend):
+    def __init__(self, model_name: str):
+        self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.model_name = model_name
+
+    async def generate_content(self, system_prompt: str, user_content: str) -> str:
+        combined_prompt = f"{system_prompt}\n\n{user_content}"
+        response = await self.client.aio.models.generate_content(
+            model=self.model_name,
+            contents=combined_prompt
+        )
+        return response.text
+
 class LLMSummarizer:
-    def __init__(self, max_group_size: int = 25000):
+    def __init__(self, max_group_size: int = 25000, backend: str = None ):
         self.max_group_size = max_group_size
         self.repo_context = None
+        if backend is None:
+            backend = settings.LLM_USE
+        if backend == "ollama":
+            self.diff_backend = OllamaBackend(settings.LLM_DIFF_SUMMARIZER)
+            self.chunk_backend = OllamaBackend(settings.LLM_CHUNK_SUMMARIZER)
+        elif backend == "gemini":
+            self.diff_backend = GeminiBackend(settings.LLM_GEMINI_DIFF_MODEL)
+            self.chunk_backend = GeminiBackend(settings.LLM_GEMINI_CHUNK_MODEL)
+        else:
+            raise ValueError(f"Unsupported backend: {backend}")
 
     def filter_diffs(self, diffs: List[CommitDiff]) -> List[CommitDiff]:
         return [diff for diff in diffs if not diff.file_path.endswith('.lock') and diff.diff_content]
@@ -89,7 +133,7 @@ class LLMSummarizer:
     def set_repository_context(self, languages: List[RepositoryLanguage], readme_summary: Optional[ReadmeSummary], repo_path: str) -> None:
         self.repo_context = RepositoryContext(languages=languages, readme_summary=readme_summary, repo_path=repo_path)
 
-    def process_group(self, diff_group: CommitDiffGroup) -> str:
+    async def process_group(self, diff_group: CommitDiffGroup) -> str:
         with open('backend/prompts/diff_summarizer.txt', 'r') as f:
             prompt_template = f.read()
 
@@ -100,23 +144,13 @@ class LLMSummarizer:
         )
 
         content = "\n\n".join(d.diff_content for d in diff_group.commit_diffs)
-
-        response = Client().chat(
-            model=settings.LLM_DIFF_SUMMARIZER,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': system_prompt
-                },
-                {
-                    'role': 'user',
-                    'content': f"Summarize these changes {content}"
-                }
-            ]
+        summary = await self.diff_backend.generate_content(
+            system_prompt,
+            f"Summarize these changes {content}"
         )
-        return self.clean_summary(response.message.content)
+        return self.clean_summary(summary)
 
-    def generate_final_summary(self, summaries: List[str]) -> str:
+    async def generate_final_summary(self, summaries: List[str]) -> str:
         with open('backend/prompts/chunks_summarizer.txt', 'r') as f:
             prompt_template = f.read()
 
@@ -127,22 +161,13 @@ class LLMSummarizer:
         )
 
         combined_summaries = "\n".join(summaries)
-        response = Client().chat(
-            model=settings.LLM_CHUNK_SUMMARIZER,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': system_prompt
-                },
-                {
-                    'role': 'user',
-                    'content': f"Finalize the summary {combined_summaries}"
-                }
-            ]
+        summary = await self.chunk_backend.generate_content(
+            system_prompt,
+            f"Finalize the summary {combined_summaries}"
         )
-        return self.clean_summary(response.message.content)
+        return self.clean_summary(summary)
 
-    def summarize_commit(self, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repository: Repository = None) -> str:
+    async def summarize_commit(self, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repository: Repository = None) -> str:
         repo_path = f"{repository.owner}/{repository.name}"
         log_info("Summarizing commit diffs, repo %s", repo_path)
         
@@ -154,8 +179,8 @@ class LLMSummarizer:
         group_summaries = []
         for group in diff_groups:
             log_info("Processing diff group of size %d", len(group.commit_diffs))
-            summary = self.process_group(group)
+            summary = await self.process_group(group)
             group_summaries.append(summary)
 
         log_info("Generated %d summaries", len(group_summaries))
-        return self.generate_final_summary(group_summaries)
+        return await self.generate_final_summary(group_summaries)
