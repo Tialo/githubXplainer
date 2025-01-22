@@ -18,19 +18,31 @@ class SummaryService:
         self.vector_store = VectorStore()
         self.is_running = False
         self.task = None
+        self._shutdown_event = asyncio.Event()
 
     async def start(self):
         """Start the summary generation background task"""
         if not self.is_running:
+            self._shutdown_event.clear()
             self.is_running = True
             self.task = asyncio.create_task(self._run_summary_loop())
             logger.info("Summary generation service started")
 
     async def stop(self):
         """Stop the summary generation background task"""
+        logger.info("Stopping summary generation service...")
         self.is_running = False
+        self._shutdown_event.set()
         if self.task:
-            await self.task
+            try:
+                await asyncio.wait_for(self.task, timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("Summary service task did not stop gracefully, forcing cancellation")
+                self.task.cancel()
+                try:
+                    await self.task
+                except asyncio.CancelledError:
+                    pass
             self.task = None
         logger.info("Summary generation service stopped")
 
@@ -38,6 +50,10 @@ class SummaryService:
         """Main loop for summary generation"""
         while self.is_running:
             try:
+                # Check for shutdown signal
+                if await self._shutdown_event.wait():
+                    break
+
                 db = SessionLocal()
                 try:
                     # Process commit summaries
@@ -57,10 +73,18 @@ class SummaryService:
                 finally:
                     db.close()
 
-                await asyncio.sleep(1)  # Prevent CPU overload
+                # Use wait_for with timeout to make the sleep interruptible
+                try:
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    pass
             except Exception as e:
                 logger.error(f"Error in summary generation loop: {str(e)} {traceback.format_exc()}")
-                await asyncio.sleep(10)  # Back off on error
+                # Make the error backoff interruptible
+                try:
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    pass
 
     async def _process_readme_summary(self, db, repository_id):
         repository = db.query(Repository).filter(Repository.id == repository_id).first()

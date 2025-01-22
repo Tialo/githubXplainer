@@ -1,6 +1,7 @@
-import threading
+import asyncio
 import traceback
 import logging
+import signal
 from fastapi import FastAPI, HTTPException, Depends, Body
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,26 @@ app = FastAPI(title="GitHub Xplainer")
 
 # Add these variables after the app initialization
 scheduler = AsyncIOScheduler()
+shutdown_event = asyncio.Event()
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    logger.info(f"Received signal {signum}")
+    asyncio.create_task(shutdown())
+
+async def shutdown():
+    """Coordinate graceful shutdown of all services"""
+    logger.info("Initiating graceful shutdown...")
+    shutdown_event.set()
+    
+    # Stop the scheduler
+    if settings.use_scheduler and scheduler.running:
+        scheduler.shutdown(wait=True)
+    
+    # Stop summary generation service
+    await summary_service.stop()
+    
+    logger.info("Shutdown complete")
 
 # Replace the direct Redis client initialization with a function
 def get_redis_client():
@@ -84,16 +105,20 @@ async def periodic_repository_update():
 @app.on_event("startup")
 async def startup_event():
     """Initialize the database and services on app startup."""
+    # Register signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     await init_db()
     
     # Start summary generation service
-    # await summary_service.start()
+    await summary_service.start()
     
     if settings.use_scheduler:
         # Run every 2 minutes
         scheduler.add_job(
             periodic_repository_update,
-            trigger=IntervalTrigger(seconds=120),
+            trigger=IntervalTrigger(seconds=12),
             id='repository_updater',
             name='Repository periodic update',
             replace_existing=True,
