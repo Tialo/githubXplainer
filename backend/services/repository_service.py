@@ -101,7 +101,7 @@ class RepositoryService:
 
         # Fetch README
         readme_data = await self.github.get_readme(owner, repo)
-        if readme_data:
+        if (readme_data):
             import base64
             readme_content = base64.b64decode(readme_data["content"]).decode("utf-8")
             repository = await update_repository_attributes(
@@ -146,83 +146,83 @@ class RepositoryService:
         return repository, commits_count, issues_count
 
     async def update_repository(self, session: AsyncSession, owner: str, repo: str) -> Tuple[Repository, int, int]:
-        async with session.begin():
-            # Get repository data
-            repo_data = await self.github.get_repository(owner, repo)
-            
-            # Check if repository exists
-            existing_repository = await get_repository_by_owner_and_name(session, owner, repo)
-            repository = Repository.from_github_data(repo_data)
-            
-            if existing_repository:
-                repository = existing_repository
-            else:
-                repository = await save_repository(session, repository)
+        # Remove the session.begin() since the transaction is managed at a higher level
+        # Get repository data
+        repo_data = await self.github.get_repository(owner, repo)
+        
+        # Check if repository exists
+        existing_repository = await get_repository_by_owner_and_name(session, owner, repo)
+        repository = Repository.from_github_data(repo_data)
+        
+        if existing_repository:
+            repository = existing_repository
+        else:
+            repository = await save_repository(session, repository)
 
-            if not repository.is_initialized:
-                return await self._initialize_repository(session, repository)
+        if not repository.is_initialized:
+            return await self._initialize_repository(session, repository)
 
-            # Update languages
-            languages = await self.github.get_languages(owner, repo)
-            await save_repository_languages(session, repository.id, languages)
+        # Update languages
+        languages = await self.github.get_languages(owner, repo)
+        await save_repository_languages(session, repository.id, languages)
 
-            # Fetch recent commits
-            recent_commits = await self.github.get_commits(
-                owner, repo, page=1, per_page=self.update_fetch_items
+        # Fetch recent commits
+        recent_commits = await self.github.get_commits(
+            owner, repo, page=1, per_page=self.update_fetch_items
+        )
+        commits_count = await self._process_commits_batch(
+            session, recent_commits, repository
+        )
+
+        # Find the last commit with null parent_sha
+        recent_orphan_commit = await get_last_commit_with_null_parent(session, repository.id)
+        if recent_orphan_commit:
+            # Fetch commits before orphan commit
+            before_commits = await self.github.get_commits_before_sha(
+                owner, repo, recent_orphan_commit.github_sha, page=1, per_page=self.update_fetch_items
             )
-            commits_count = await self._process_commits_batch(
-                session, recent_commits, repository
+            commits_count += await self._process_commits_batch(
+                session, before_commits, repository
             )
 
-            # Find the last commit with null parent_sha
-            recent_orphan_commit = await get_last_commit_with_null_parent(session, repository.id)
-            if recent_orphan_commit:
-                # Fetch commits before orphan commit
-                before_commits = await self.github.get_commits_before_sha(
-                    owner, repo, recent_orphan_commit.github_sha, page=1, per_page=self.update_fetch_items
+        # Fetch recent issues
+        recent_issues = await self.github.get_issues(owner, repo, page=1, per_page=self.max_items)
+        issues_count = await self._process_issues_batch(
+            session, recent_issues, repository
+        )
+
+        # Find the last issue with null parent
+        recent_orphan_issue = await get_last_issue_with_null_parent(session, repository.id)
+        if recent_orphan_issue:
+            # Fetch issues before orphan issue
+            for i in range(1, min(self.update_fetch_items + 1, recent_orphan_issue.number)):
+                # use min to avoid fetching issues with not positive numbers
+                before_issue = await get_issue_by_number(session, recent_orphan_issue.number - i, repository.id)
+                if before_issue:
+                    continue
+                before_issue = await self.github.get_issue_by_number(
+                    owner, repo, number=recent_orphan_issue.number - i
                 )
-                commits_count += await self._process_commits_batch(
-                    session, before_commits, repository
+                if before_issue:
+                    await self._process_issue(session, before_issue, repository)
+                    issues_count += 1
+                    continue
+                
+                # if issue wasn't found on GitHub, then it was deleted by repository owner
+                deleted_issue = await get_deleted_issue_by_number(
+                    session, recent_orphan_issue.number - i, repository.id
                 )
-
-            # Fetch recent issues
-            recent_issues = await self.github.get_issues(owner, repo, page=1, per_page=self.max_items)
-            issues_count = await self._process_issues_batch(
-                session, recent_issues, repository
-            )
-
-            # Find the last issue with null parent
-            recent_orphan_issue = await get_last_issue_with_null_parent(session, repository.id)
-            if recent_orphan_issue:
-                # Fetch issues before orphan issue
-                for i in range(1, min(self.update_fetch_items + 1, recent_orphan_issue.number)):
-                    # use min to avoid fetching issues with not positive numbers
-                    before_issue = await get_issue_by_number(session, recent_orphan_issue.number - i, repository.id)
-                    if before_issue:
-                        continue
-                    before_issue = await self.github.get_issue_by_number(
-                        owner, repo, number=recent_orphan_issue.number - i
-                    )
-                    if before_issue:
-                        await self._process_issue(session, before_issue, repository)
-                        issues_count += 1
-                        continue
-                    
-                    # if issue wasn't found on GitHub, then it was deleted by repository owner
-                    deleted_issue = await get_deleted_issue_by_number(
-                        session, recent_orphan_issue.number - i, repository.id
-                    )
-                    if deleted_issue:
-                        issues_count += 1
-                    else:
-                        await save_deleted_issue(
-                            session, DeletedIssue(
-                                number=recent_orphan_issue.number - i,
-                                repository_id=repository.id
-                            )
+                if deleted_issue:
+                    issues_count += 1
+                else:
+                    await save_deleted_issue(
+                        session, DeletedIssue(
+                            number=recent_orphan_issue.number - i,
+                            repository_id=repository.id
                         )
+                    )
 
-            return repository, commits_count, issues_count
+        return repository, commits_count, issues_count
 
     async def get_all_repositories(self, session: AsyncSession):
         """Get all repositories from the database."""

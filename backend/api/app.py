@@ -57,19 +57,22 @@ async def periodic_repository_update():
     log_info("Starting periodic repository update")
     try:
         async with async_session() as session:
-            repos = await repository_service.get_all_initialized_repositories(session)
-        log_info(f"Found {len(repos)} repositories to update")
-        for repo in repos:
-            try:
-                await repository_service.update_repository(
-                    # need to pass 
-                    repo.owner,
-                    repo.name
-                )
-                log_info(f"Successfully updated repository {repo.owner}/{repo.name}")
-            except Exception as e:
-                log_error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
-                continue
+            async with session.begin():  # This creates a single transaction for all operations
+                repos = await repository_service.get_all_initialized_repositories(session)
+                log_info(f"Found {len(repos)} repositories to update")
+                for repo in repos:
+                    try:
+                        _, commits_count, issues_count = await repository_service.update_repository(
+                            session,
+                            repo.owner,
+                            repo.name
+                        )
+                        log_info(f"Successfully updated repository {repo.owner}/{repo.name}")
+                        log_info(f"Commits processed: {commits_count}, Issues processed: {issues_count}")
+                    except Exception as e:
+                        log_error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
+                        # Don't continue, rollback the entire transaction
+                        raise
     except Exception as e:
         log_error(f"Error in periodic update: {str(e)}")
     finally:
@@ -85,7 +88,7 @@ async def startup_event():
         # Run every 2 minutes
         scheduler.add_job(
             periodic_repository_update,
-            trigger=IntervalTrigger(seconds=1231231),
+            trigger=IntervalTrigger(seconds=120),
             id='repository_updater',
             name='Repository periodic update',
             replace_existing=True,
@@ -164,11 +167,12 @@ async def initialize_repository(
     session: AsyncSession = Depends(get_session)
 ):
     try:
-        repository, commits_count, issues_count = await repository_service.update_repository(
-            session,
-            repo_init.owner,
-            repo_init.repo
-        )
+        async with session.begin():  # Add transaction management
+            repository, commits_count, issues_count = await repository_service.update_repository(
+                session,
+                repo_init.owner,
+                repo_init.repo
+            )
         
         return RepositoryResponse(
             owner=repository.owner,

@@ -12,6 +12,7 @@ from backend.models.repository import ReadmeSummary, Repository
 from backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
+logger.setLevel(logging.INFO)
 logging.disable(logging.WARNING)
 logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 kafka = KafkaInterface()
@@ -89,7 +90,7 @@ def do_readme_summary_task(repository_id: int):
 if __name__ == '__main__':
     import time
     last_scheduled = time.time()
-    logger.info("Starting summary tasks")
+    print("Starting summary tasks")
     
     # Initialize kafka service and consumer
     kafka = KafkaInterface()
