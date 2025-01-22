@@ -16,28 +16,23 @@ class GeminiService:
             self.prompt_template = f.read()
 
     async def summarize_results(self, query: str, results: list, commits: list[Commit], repository: Repository) -> str:
-        try:
-            # Format commit summaries with links, but only for commits that are in the results
-            commit_summaries = []
-            
-            # Then format the results with commit links only for relevant commits
-            for result, commit in zip(results, commits):
-                content = result.page_content
-                commit_hash = commit.github_sha
-                commit_link = f"https://github.com/{repository.owner}/{repository.name}/commit/{commit_hash}"
-                content = f"{content}\nCommit: {commit_link}"
-                commit_summaries.append(content)
+        commit_summaries = []
+        
+        # Then format the results with commit links only for relevant commits
+        for result, commit in zip(results, commits):
+            content = result.page_content
+            commit_hash = commit.github_sha
+            commit_link = f"https://github.com/{repository.owner}/{repository.name}/commit/{commit_hash}"
+            content = f"{content}\nCommit: {commit_link}"
+            commit_summaries.append(content)
 
-            # Format the prompt
-            prompt = self.prompt_template.format(
-                user_query=query,
-                commit_summaries_with_links="\n\n".join(commit_summaries)
-            )
+        # Format the prompt
+        prompt = self.prompt_template.format(
+            user_query=query,
+            commit_summaries_with_links="\n\n".join(commit_summaries)
+        )
 
-            response = await self.client.aio.models.generate_content(model="gemini-2.0-flash-exp", contsnts=prompt)
-            return response.text
-        except Exception as e:
-            logger.error(f"Gemini summarization error: {str(e)}")
-            return "Error generating summary"
+        response = await self.client.aio.models.generate_content(model="gemini-2.0-flash-exp", contents=prompt)
+        return response.text, prompt
 
 gemini_service = GeminiService()

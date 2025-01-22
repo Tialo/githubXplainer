@@ -202,6 +202,7 @@ class FAISSSimilarityResult(BaseModel):
     summary: str
     search_time: float
     load_time: float
+    prompt: str
 
 @app.get("/alive")
 async def alive():
@@ -443,6 +444,13 @@ async def search_faiss_similar(
             filter={"repo_id": repository.id}
         )
         search_time = time.time() - start
+        if not results:
+            return FAISSSimilarityResult(
+                summary="No similar items found",
+                search_time=search_time,
+                load_time=loaded_in,
+                prompt=""
+            )
 
         # Get commit IDs from results metadata
         commit_ids = [
@@ -454,12 +462,13 @@ async def search_faiss_similar(
         commits = await get_commits_by_ids(session, commit_ids)
 
         # Get summary from Gemini using enhanced results
-        summary = await gemini_service.summarize_results(query.query, results, commits, repository)
+        summary, prompt = await gemini_service.summarize_results(query.query, results, commits, repository)
         
         return FAISSSimilarityResult(
             summary=summary,
             search_time=search_time,
-            load_time=loaded_in
+            load_time=loaded_in,
+            prompt=prompt,
         )
         
     except Exception as e:
