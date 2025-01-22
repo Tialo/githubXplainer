@@ -106,7 +106,6 @@ if __name__ == '__main__':
                     generate_commit_summary_task(message.get("commit_id"))
                 except Exception as e:
                     logger.error(f"Error processing commit message: {str(e)}")
-                    logger.exception("as")
             for message in kafka.read_from_topic("readme"):
                 logger.info(f"Received README message: {message}")
                 try:

@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from dataclasses import dataclass
 from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary
@@ -8,6 +9,7 @@ from backend.config.settings import settings
 
 
 logger = get_logger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @dataclass
