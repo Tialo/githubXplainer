@@ -59,10 +59,10 @@ async def periodic_repository_update():
         async with async_session() as session:
             repos = await repository_service.get_all_initialized_repositories(session)
         log_info(f"Found {len(repos)} repositories to update")
-        
         for repo in repos:
             try:
                 await repository_service.update_repository(
+                    # need to pass 
                     repo.owner,
                     repo.name
                 )
@@ -85,7 +85,7 @@ async def startup_event():
         # Run every 2 minutes
         scheduler.add_job(
             periodic_repository_update,
-            trigger=IntervalTrigger(seconds=120),
+            trigger=IntervalTrigger(seconds=1231231),
             id='repository_updater',
             name='Repository periodic update',
             replace_existing=True,
@@ -161,9 +161,11 @@ async def alive():
 @app.post("/repos/init", response_model=RepositoryResponse)
 async def initialize_repository(
     repo_init: RepositoryInit,
+    session: AsyncSession = Depends(get_session)
 ):
     try:
         repository, commits_count, issues_count = await repository_service.update_repository(
+            session,
             repo_init.owner,
             repo_init.repo
         )

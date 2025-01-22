@@ -145,8 +145,8 @@ class RepositoryService:
 
         return repository, commits_count, issues_count
 
-    async def update_repository(self, owner: str, repo: str) -> Tuple[Repository, int, int]:
-        async with async_session() as session:
+    async def update_repository(self, session: AsyncSession, owner: str, repo: str) -> Tuple[Repository, int, int]:
+        async with session.begin():
             # Get repository data
             repo_data = await self.github.get_repository(owner, repo)
             
