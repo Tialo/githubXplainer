@@ -5,6 +5,7 @@ from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSumm
 from ollama import AsyncClient
 from datetime import datetime
 import re
+import asyncio
 from backend.utils.logger import get_logger
 from backend.config.settings import settings
 from abc import ABC, abstractmethod
@@ -77,10 +78,15 @@ class GeminiBackend(ModelBackend):
 
     async def generate_content(self, system_prompt: str, user_content: str) -> str:
         combined_prompt = f"{system_prompt}\n\n{user_content}"
-        response = await self.client.aio.models.generate_content(
-            model=self.model_name,
-            contents=combined_prompt
-        )
+        for _ in range(3):
+            try:
+                response = await self.client.aio.models.generate_content(
+                    model=self.model_name,
+                    contents=combined_prompt
+                )
+                continue
+            except:
+                await asyncio.sleep(15)
         return response.text
 
 class LLMSummarizer:

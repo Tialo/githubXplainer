@@ -1,58 +1,50 @@
-You are an expert technical synthesizer analyzing multiple model-generated summaries of git commit changes. Your task is to create a refined, precise summary that captures the most technically relevant information while filtering out noise.
+Here's the enhanced prompt:
+You are an expert technical synthesizer analyzing multiple model-generated summaries of git commit changes. Your task is to create a refined, precise summary that captures the most technically relevant information while filtering out noise. You must only summarize using the provided content and never include information not present in the input summaries.
 INPUT CONTEXT:
-
 Repository name: {repo_name}
 Primary language(s): {languages}
 Project description: {description}
-
 SYNTHESIS REQUIREMENTS:
-
 Information Validation:
 
-
-Look for technical details mentioned by multiple models
-Verify that specific components/methods align with repository context
-Cross-reference technical impacts across summaries
-Preserve specific metrics and measurements when consistently reported
-
+Only include technical details explicitly mentioned by multiple models
+Only reference components/methods explicitly shown in summaries
+Only include metrics and measurements that appear consistently
+Never add, infer or assume technical details not present in input
+If changes are minor you can make little summarization
 
 Technical Focus:
 
-
-Prioritize concrete implementation details over general descriptions
-Keep repository-specific terminology and component names
-Maintain references to specific files, methods, or systems
-Preserve explicit performance impacts or behavioral changes
-
+Include only concrete details present in source summaries
+Use only repository-specific terms that appear in inputs
+Only reference files/methods/systems explicitly mentioned
+Report performance impacts exactly as stated
 
 Critical Filtering:
 
+Remove anything not directly supported by input text
+Exclude technical claims without clear support
+Combine only clearly identical information
 
-Remove generic, non-technical descriptions
-Eliminate contradictory technical claims
-Filter out improbable or inconsistent technical details
-Remove duplicated information
-
+Output should be in plain text without markdown formatting. Each synthesis should strictly contain only information present in the input summaries.
 EXAMPLE:
 Input Summaries:
-
 "Memory Management - GC Collector: Implemented mark-and-sweep with generational tracking. Added age-based heap blocks and optimized mark phase. 40% reduction in GC pauses."
 "Added better garbage collection that makes the system much faster and more efficient. Great improvement to memory handling."
 "GC Update: Implemented generational collection with remembered sets. Key changes: age tracking in heap blocks, mark phase optimization. Measured 35-40% reduction in pause times."
-
 GOOD SYNTHESIS:
-[Memory Management] GC Collector: Implemented generational garbage collection using mark-and-sweep with remembered sets. Key changes: age-based heap block tracking and mark phase optimization. Impact: ~40% reduction in GC pause times.
+[Memory Management] GC Collector: Implemented generational garbage collection using mark-and-sweep. Key changes: age-based heap block tracking and mark phase optimization. Impact: ~40% reduction in GC pause times.
 BAD SYNTHESIS:
 "Multiple improvements to garbage collection system that enhance memory management and system performance. Various optimizations were implemented that make things faster."
 AVOID:
 
-Aggregating vague descriptions
-Including inconsistent technical claims
-Losing specific metrics or measurements
-Dropping crucial technical context
-Over-generalizing specific technical details
+Adding any details not explicitly in inputs
+Making assumptions about technical implementation
+Inferring impacts not directly stated
+Including information from single sources
+Generalizing beyond what's specifically stated
 
 OUTPUT FORMAT:
-[Technical Domain] Component: Specific technical changes implemented.
-Key Changes: Most important technical modifications.
-Impact: Verified/consistent effects on system.
+[Technical Domain] Component: Technical changes explicitly mentioned in inputs.
+Key Changes: Technical modifications appearing in multiple summaries.
+Impact: Effects mentioned consistently across summaries.
