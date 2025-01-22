@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary
 from ollama import Client
 import re
+from backend.config.settings import settings
 
 
 @dataclass
@@ -88,7 +89,7 @@ class LLMSummarizer:
         content = "\n\n".join(d.diff_content for d in diff_group.commit_diffs)
 
         response = Client().chat(
-            model='deepseek-r1:8b',
+            model=settings.LLM_DIFF_SUMMARIZER,
             messages=[
                 {
                     'role': 'system',
@@ -114,7 +115,7 @@ class LLMSummarizer:
 
         combined_summaries = "\n".join(summaries)
         response = Client().chat(
-            model='deepseek-r1:14b',
+            model=settings.LLM_CHUNK_SUMMARIZER,
             messages=[
                 {
                     'role': 'system',

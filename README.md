@@ -17,7 +17,7 @@ pip install -r requirements.txt
 2. **Start Services (in this exact order)**
 ```bash
 # 1. Start infrastructure services first
-docker-compose up postgres elasticsearch kafka
+docker-compose up postgres elasticsearch kafka kafka-ui
 
 # 3. Start RQ worker (in a separate terminal)
 # RQ must be started before the API server since it processes the background tasks
@@ -86,6 +86,14 @@ Access the Flower dashboard at http://localhost:5555 to monitor:
 - Worker status
 - Real-time statistics
 - Task graphs and metrics
+
+### Kafka Monitoring
+Access the Kafka UI dashboard at http://localhost:8080 to monitor:
+- Topic management and browsing
+- Consumer groups
+- Message browsing
+- Cluster state
+- Performance metrics
 
 ## Kafka Setup
 

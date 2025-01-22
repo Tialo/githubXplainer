@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str | None = None  # None for local development
 
+    LLM_README_SUMMARIZER: str = "deepseek-r1:8b"
+    LLM_DIFF_SUMMARIZER: str = "deepseek-r1:8b"
+    LLM_CHUNK_SUMMARIZER: str = "deepseek-r1:14b-qwen-distill-q4_K_M"
+
     class Config:
         env_file = ".env"
 

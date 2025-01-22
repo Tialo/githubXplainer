@@ -1,4 +1,5 @@
 from ollama import chat
+from backend.config.settings import settings
 import os
 
 class ReadmeSummarizer:
@@ -16,7 +17,7 @@ class ReadmeSummarizer:
         prompt = f"{self.prompt_template}\n\nAnalyze this README content:\n\n{readme_content}"
     
         response = chat(
-            model='deepseek-r1:8b',
+            model=settings.LLM_README_SUMMARIZER,
             messages=[{
                 'role': 'user',
                 'content': prompt
