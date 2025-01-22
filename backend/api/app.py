@@ -87,7 +87,7 @@ async def startup_event():
     await init_db()
     
     # Start summary generation service
-    await summary_service.start()
+    # await summary_service.start()
     
     if settings.use_scheduler:
         # Run every 2 minutes
@@ -173,6 +173,8 @@ class FAISSSimilarityResult(BaseModel):
     text: str
     metadata: dict
     score: float
+    search_time: float
+    load_time: float
 
 @app.get("/alive")
 async def alive():
@@ -388,14 +390,21 @@ async def find_similar(query: SimilaritySearchQuery):
 async def search_faiss_similar(query: FAISSSimilarityQuery):
     """Find similar items using FAISS vector similarity."""
     try:
+        import time
+        start = time.time()
         vector_store = VectorStore()
+        loaded_in = time.time() - start
+        start = time.time()
         results = vector_store.search_similar(query.query, k=query.k)
+        search_time = time.time() - start
         
         return [
             FAISSSimilarityResult(
-                text=doc.page_content,
+                text="",
                 metadata=doc.metadata,
-                score=0.0  # FAISS doesn't return scores directly
+                score=0.0,
+                search_time=search_time,
+                load_time=loaded_in
             ) 
             for doc in results
         ]
