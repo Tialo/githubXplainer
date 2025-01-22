@@ -88,8 +88,8 @@ class RepositoryService:
         """Process a batch of issues and return the count of new issues."""
         issues_count = 0
         for issue_data in issues_data:
-            await self._process_issue(session, issue_data, repository)
-            issues_count += 1
+            _, count = await self._process_issue(session, issue_data, repository)
+            issues_count += count
         return issues_count
 
     async def _initialize_repository(self, session: AsyncSession, repository: Repository) -> Tuple[Repository, int, int]:
@@ -204,8 +204,8 @@ class RepositoryService:
                     owner, repo, number=recent_orphan_issue.number - i
                 )
                 if before_issue:
-                    await self._process_issue(session, before_issue, repository)
-                    issues_count += 1
+                    _, count = await self._process_issue(session, before_issue, repository)
+                    issues_count += count
                     continue
                 
                 # if issue wasn't found on GitHub, then it was deleted by repository owner

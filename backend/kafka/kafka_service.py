@@ -1,6 +1,7 @@
 from kafka import KafkaProducer, KafkaConsumer
 import json
 from typing import Any, Dict, List
+import atexit
 
 class KafkaInterface:
     def __init__(self, bootstrap_servers: str = 'localhost:9092'):
@@ -12,7 +13,8 @@ class KafkaInterface:
         """
         self.bootstrap_servers = bootstrap_servers
         self.producer = None
-        self.consumer = None
+        self.consumers = {}  # Track multiple consumers
+        atexit.register(self.close)
     
     def write_to_topic(self, topic: str, message: int) -> bool:
         """
@@ -53,18 +55,19 @@ class KafkaInterface:
             List[Dict]: список сообщений
         """
         try:
-            self.consumer = KafkaConsumer(
-                topic,
-                bootstrap_servers=self.bootstrap_servers,
-                value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                auto_offset_reset='earliest',  # Changed from 'latest' to 'earliest'
-                enable_auto_commit=True,
-                group_id='githubxplainer-consumer-group',  # Added consumer group
-                consumer_timeout_ms=timeout_ms
-            )
+            if topic not in self.consumers:
+                self.consumers[topic] = KafkaConsumer(
+                    topic,
+                    bootstrap_servers=self.bootstrap_servers,
+                    value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+                    auto_offset_reset='earliest',
+                    enable_auto_commit=True,
+                    group_id=f'githubxplainer-consumer-group-{topic}',
+                    consumer_timeout_ms=timeout_ms
+                )
             
             messages = []
-            for message in self.consumer:
+            for message in self.consumers[topic]:
                 messages.append(message.value)
             
             return messages
@@ -77,5 +80,11 @@ class KafkaInterface:
         """Close Kafka connections"""
         if self.producer:
             self.producer.close()
-        if self.consumer:
-            self.consumer.close()
+        
+        # Close each consumer properly
+        for consumer in self.consumers.values():
+            try:
+                consumer.close(autocommit=False)
+            except Exception as e:
+                print(f"Error closing consumer: {e}")
+        self.consumers.clear()

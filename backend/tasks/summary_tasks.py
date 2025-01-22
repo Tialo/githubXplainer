@@ -87,32 +87,46 @@ def do_readme_summary_task(repository_id: int):
     finally:
         db.close()
 
+import signal
+
 if __name__ == '__main__':
     import time
     last_scheduled = time.time()
     print("Starting summary tasks")
     
-    # Initialize kafka service and consumer
+    # Initialize kafka service
     kafka = KafkaInterface()
+    
+    def shutdown_handler(signum, frame):
+        logger.info("Received shutdown signal, cleaning up...")
+        kafka.close()
+        sys.exit(0)
+    
+    # Register signal handlers
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
     
     try:
         while True:
             if last_scheduled + 10 < time.time():
                 schedule_missing_summaries()
                 last_scheduled = time.time()
+            
+            # Read messages from topics
             for message in kafka.read_from_topic("commit"):
                 logger.info(f"Received commit message: {message}")
                 try:
                     generate_commit_summary_task(message.get("commit_id"))
                 except Exception as e:
                     logger.error(f"Error processing commit message: {str(e)}")
+                    
             for message in kafka.read_from_topic("readme"):
                 logger.info(f"Received README message: {message}")
                 try:
                     do_readme_summary_task(message.get("repository_id"))
                 except Exception as e:
                     logger.error(f"Error processing README message: {str(e)}")
-                    
+            
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("Shutting down summary tasks")
