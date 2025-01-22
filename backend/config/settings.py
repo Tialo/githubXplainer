@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 from functools import lru_cache
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+import os
 
 class Settings(BaseSettings):
     # GitHub settings
@@ -42,6 +43,8 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str = None
     OPENAI_API_BASE: str = None
+
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY")
 
     class Config:
         env_file = ".env"

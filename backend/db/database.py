@@ -200,6 +200,16 @@ async def save_repository_languages(
     await session.flush()
     return lang_objects
 
+async def get_commits_by_ids(session: AsyncSession, commit_ids: List[int]) -> List[Commit]:
+    """Get commits by their IDs."""
+    if not commit_ids:
+        return []
+    result = await session.execute(
+        select(Commit)
+        .where(Commit.id.in_(commit_ids))
+    )
+    return result.scalars().all()
+
 if __name__ == "__main__":
     import asyncio
     from sqlalchemy.orm import sessionmaker

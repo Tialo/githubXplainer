@@ -18,7 +18,8 @@ from redis import Redis
 from backend.utils.logger import get_logger
 from backend.services.vector_store import VectorStore
 from backend.services.summary_service import summary_service
-from backend.db.database import get_repository_by_owner_and_name
+from backend.db.database import get_repository_by_owner_and_name, get_commits_by_ids
+from backend.services.gemini_service import gemini_service
 
 logger = get_logger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -198,8 +199,7 @@ class FAISSSimilarityQuery(BaseModel):
     name: str
 
 class FAISSSimilarityResult(BaseModel):
-    text: str
-    metadata: dict
+    summary: str
     search_time: float
     load_time: float
 
@@ -413,14 +413,13 @@ async def find_similar(query: SimilaritySearchQuery):
             detail=error_detail
         )
 
-@app.post("/search/faiss", response_model=List[FAISSSimilarityResult])
+@app.post("/search/faiss", response_model=FAISSSimilarityResult)
 async def search_faiss_similar(
     query: FAISSSimilarityQuery,
     session: AsyncSession = Depends(get_session)
 ):
-    """Find similar items using FAISS vector similarity."""
+    """Find similar items using FAISS vector similarity and provide a summarized answer."""
     try:
-        # Get repository ID from owner and name
         repository = await get_repository_by_owner_and_name(
             session,
             query.owner,
@@ -444,16 +443,25 @@ async def search_faiss_similar(
             filter={"repo_id": repository.id}
         )
         search_time = time.time() - start
-        
-        return [
-            FAISSSimilarityResult(
-                text=doc.page_content,
-                metadata=doc.metadata,
-                search_time=search_time,
-                load_time=loaded_in
-            ) 
+
+        # Get commit IDs from results metadata
+        commit_ids = [
+            int(doc.metadata["commit_id"]) 
             for doc in results
         ]
+        
+        # Fetch commits from database
+        commits = await get_commits_by_ids(session, commit_ids)
+
+        # Get summary from Gemini using enhanced results
+        summary = await gemini_service.summarize_results(query.query, results, commits, repository)
+        
+        return FAISSSimilarityResult(
+            summary=summary,
+            search_time=search_time,
+            load_time=loaded_in
+        )
+        
     except Exception as e:
         log_error(f"FAISS search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
