@@ -1,20 +1,17 @@
-import asyncio
 import traceback
 import logging
-import signal
 from fastapi import FastAPI, HTTPException, Depends, Body
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.repository_service import repository_service
-from backend.config.settings import get_session, settings, async_session  # Add this import
+from backend.config.settings import get_session, settings
 from backend.db.database import init_db
 from backend.services.elasticsearch.searcher import Searcher
 from backend.config.elasticsearch import get_elasticsearch_client
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from redis import Redis
 from backend.utils.logger import get_logger
 from backend.services.vector_store import VectorStore
 from backend.services.summary_service import summary_service
@@ -36,81 +33,11 @@ app = FastAPI(title="GitHub Xplainer")
 
 # Add these variables after the app initialization
 scheduler = AsyncIOScheduler()
-ashutdown_event = asyncio.Event()
 
-def signal_handler(signum, frame):
-    """Handle shutdown signals"""
-    logger.info(f"Received signal {signum}")
-    asyncio.create_task(shutdown())
-
-async def shutdown():
-    """Coordinate graceful shutdown of all services"""
-    logger.info("Initiating graceful shutdown...")
-    ashutdown_event.set()
-    
-    # Stop the scheduler
-    if settings.use_scheduler and scheduler.running:
-        scheduler.shutdown(wait=True)
-    
-    logger.info("Shutdown complete")
-
-# Replace the direct Redis client initialization with a function
-def get_redis_client():
-    return Redis(host='localhost', port=6379, db=0)
-
-LOCK_KEY = "repository_update_lock"
-LOCK_TIMEOUT = 300  # 5 minutes max lock time
-
-async def periodic_repository_update():
-    raise 4
-    """Periodically update repository data with Redis lock."""
-    redis_client = get_redis_client()
-    # Try to acquire lock
-    lock_acquired = redis_client.set(
-        LOCK_KEY, 
-        'locked', 
-        ex=LOCK_TIMEOUT,
-        nx=True
-    )
-    
-    if not lock_acquired:
-        log_info("Another update task is still running, skipping this run")
-        return
-
-    log_info("Starting periodic repository update")
-    try:
-        async with async_session() as session:
-            async with session.begin():
-                repos = await repository_service.get_all_initialized_repositories(session)
-                log_info(f"Found {len(repos)} repositories to update")
-                for repo in repos:
-                    if ashutdown_event.is_set():
-                        break
-                    try:
-                        _, commits_count, issues_count = await repository_service.update_repository(
-                            session,
-                            repo.owner,
-                            repo.name
-                        )
-                        log_info(f"Successfully updated repository {repo.owner}/{repo.name}")
-                        log_info(f"Commits processed: {commits_count}, Issues processed: {issues_count}")
-                        # Add a small yield to prevent blocking
-                        await asyncio.sleep(0.1)
-                    except Exception as e:
-                        log_error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}, {traceback.format_exc()}")
-                        raise
-    except Exception as e:
-        log_error(f"Error in periodic update: {str(e)}")
-    finally:
-        # Release lock even if there was an error
-        redis_client.delete(LOCK_KEY)
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize the database and services on app startup."""
-    # Register signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
     
     await init_db()
     
@@ -127,7 +54,7 @@ async def startup_event():
         
         # Repository update job
         scheduler.add_job(
-            periodic_repository_update,
+            summary_service.periodic_repository_update,
             trigger=IntervalTrigger(minutes=2),
             id='repository_updater',
             name='Repository periodic update',

@@ -1,4 +1,3 @@
-import asyncio
 import traceback
 import logging
 from datetime import datetime
@@ -8,6 +7,8 @@ from backend.services.readme_summarizer import ReadmeSummarizer
 from backend.models.repository import ReadmeSummary, Repository
 from backend.services.vector_store import VectorStore
 from backend.db.database import SessionLocal
+from backend.config.settings import async_session
+from backend.services.repository_service import repository_service
 
 logger = get_logger(__name__)
 logging.disable(logging.WARNING)
@@ -28,6 +29,7 @@ class SummaryService:
         try:
             await self.process_commits()
             await self.process_readmes()
+            await self.periodic_repository_update()
             log_info("Completed processing all summaries")
         except Exception as e:
             logger.error(f"Error in unified summary processing: {str(e)} {traceback.format_exc()}")
@@ -97,5 +99,23 @@ class SummaryService:
             
         db.commit()
         log_info(f"Generated README summary for repository {repository_id}")
+
+    async def periodic_repository_update(self):
+        async with async_session() as session:
+            async with session.begin():
+                repos = await repository_service.get_all_initialized_repositories(session)
+                log_info(f"Found {len(repos)} repositories to update")
+                for repo in repos:
+                    try:
+                        _, commits_count, issues_count = await repository_service.update_repository(
+                            session,
+                            repo.owner,
+                            repo.name
+                        )
+                        log_info(f"Successfully updated repository {repo.owner}/{repo.name}")
+                        log_info(f"Commits processed: {commits_count}, Issues processed: {issues_count}")
+                    except Exception as e:
+                        log_info(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}, {traceback.format_exc()}")
+                        raise
 
 summary_service = SummaryService()
