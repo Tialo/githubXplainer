@@ -17,9 +17,9 @@ export const searchRepository = async (query: string, owner: string, name: strin
   return response.data;
 };
 
-export const initializeRepository = async (owner: string, name: string): Promise<void> => {
+export const initializeRepository = async (owner: string, repo: string): Promise<void> => {
   await axios.post(`${API_BASE_URL}/repos/init`, {
     owner,
-    name,
+    repo,
   });
 };

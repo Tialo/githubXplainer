@@ -5,7 +5,7 @@ import { GitFork, Plus, Loader } from 'lucide-react';
 
 export function Repositories() {
   const [owner, setOwner] = useState('');
-  const [name, setName] = useState('');
+  const [repo, setRepo] = useState('');
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -26,7 +26,7 @@ export function Repositories() {
   };
 
   const handleAddRepository = async () => {
-    if (!owner || !name) {
+    if (!owner || !repo) {
       setError('Please enter both owner and repository name.');
       return;
     }
@@ -35,10 +35,10 @@ export function Repositories() {
     setError('');
 
     try {
-      await initializeRepository(owner, name);
+      await initializeRepository(owner, repo);
       await fetchRepositories();
       setOwner('');
-      setName('');
+      setRepo('');
     } catch (err) {
       setError('Failed to add repository. Please try again.');
     } finally {
@@ -77,8 +77,8 @@ export function Repositories() {
               type="text"
               id="name"
               className="input-base w-full p-2"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={repo}
+              onChange={(e) => setRepo(e.target.value)}
               placeholder="e.g., react"
             />
           </div>

@@ -62,7 +62,6 @@ export function Search() {
             value={selectedRepo}
             onChange={(e) => setSelectedRepo(e.target.value)}
           >
-            <option value="">Select a repository</option>
             {repositories.map((repo) => (
               <option key={`${repo.owner}/${repo.name}`} value={`${repo.owner}/${repo.name}`}>
                 {repo.owner}/{repo.name}
