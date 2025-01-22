@@ -96,7 +96,7 @@ def generate_commit_summary(commit_id: int, db: Session) -> Tuple[str, Repositor
         languages=languages,
         readme_summary=readme_summary,
         repository=repository,
-    ), repository
+    ), repository, commit
 
 def save_commit_summary(db: Session, commit_id: int) -> None:
     """
@@ -110,7 +110,7 @@ def save_commit_summary(db: Session, commit_id: int) -> None:
         return
     
     try:
-        summary, repo = generate_commit_summary(commit_id, db)
+        summary, repo, commit = generate_commit_summary(commit_id, db)
     except CommitNotFoundError:
         logger.error(f"Commit with id {commit_id} not found")
         return
@@ -124,7 +124,7 @@ def save_commit_summary(db: Session, commit_id: int) -> None:
         db.add(commit_summary)
     
     db.commit()
-    return summary, repo
+    return summary, repo, commit
 
 
 if __name__ == '__main__':
