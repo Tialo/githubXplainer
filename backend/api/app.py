@@ -1,6 +1,7 @@
 import traceback
 import logging
 from fastapi import FastAPI, HTTPException, Depends, Body
+from fastapi.middleware.cors import CORSMiddleware  # Add this import
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.repository_service import repository_service
@@ -30,6 +31,15 @@ def log_error(text, *params):
 logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 
 app = FastAPI(title="GitHub Xplainer")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Add these variables after the app initialization
 scheduler = AsyncIOScheduler()
