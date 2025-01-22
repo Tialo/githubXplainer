@@ -52,9 +52,6 @@ async def shutdown():
     if settings.use_scheduler and scheduler.running:
         scheduler.shutdown(wait=True)
     
-    # Stop summary generation service
-    await summary_service.stop()
-    
     logger.info("Shutdown complete")
 
 # Replace the direct Redis client initialization with a function
@@ -65,6 +62,7 @@ LOCK_KEY = "repository_update_lock"
 LOCK_TIMEOUT = 300  # 5 minutes max lock time
 
 async def periodic_repository_update():
+    raise 4
     """Periodically update repository data with Redis lock."""
     redis_client = get_redis_client()
     # Try to acquire lock
@@ -82,10 +80,12 @@ async def periodic_repository_update():
     log_info("Starting periodic repository update")
     try:
         async with async_session() as session:
-            async with session.begin():  # This creates a single transaction for all operations
+            async with session.begin():
                 repos = await repository_service.get_all_initialized_repositories(session)
                 log_info(f"Found {len(repos)} repositories to update")
                 for repo in repos:
+                    if ashutdown_event.is_set():
+                        break
                     try:
                         _, commits_count, issues_count = await repository_service.update_repository(
                             session,
@@ -94,9 +94,10 @@ async def periodic_repository_update():
                         )
                         log_info(f"Successfully updated repository {repo.owner}/{repo.name}")
                         log_info(f"Commits processed: {commits_count}, Issues processed: {issues_count}")
+                        # Add a small yield to prevent blocking
+                        await asyncio.sleep(0.1)
                     except Exception as e:
                         log_error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}, {traceback.format_exc()}")
-                        # Don't continue, rollback the entire transaction
                         raise
     except Exception as e:
         log_error(f"Error in periodic update: {str(e)}")
@@ -113,20 +114,27 @@ async def startup_event():
     
     await init_db()
     
-    # Start summary generation service
-    log_info("Starting summary generation service...")
-    await summary_service.start()
-    
     if settings.use_scheduler:
-        # Run every 2 minutes
+        # Schedule unified summary processing every 2 minutes
+        scheduler.add_job(
+            summary_service.process_all_summaries,
+            trigger=IntervalTrigger(minutes=2),
+            id='summary_processor',
+            name='Process all summaries',
+            replace_existing=True,
+            max_instances=1
+        )
+        
+        # Repository update job
         scheduler.add_job(
             periodic_repository_update,
-            trigger=IntervalTrigger(seconds=1),
+            trigger=IntervalTrigger(minutes=2),
             id='repository_updater',
             name='Repository periodic update',
             replace_existing=True,
-            # max_instances=1  # Extra safety: ensure only one instance runs
+            max_instances=1
         )
+        
         scheduler.start()
 
 @app.on_event("shutdown")
@@ -134,9 +142,6 @@ async def shutdown_event():
     """Shut down services when the app stops."""
     if settings.use_scheduler and scheduler.running:
         scheduler.shutdown(wait=False)
-    
-    # Stop summary generation service
-    await summary_service.stop()
 
 class RepositoryInit(BaseModel):
     owner: str
