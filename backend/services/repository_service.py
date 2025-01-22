@@ -26,7 +26,6 @@ class RepositoryService:
         session: AsyncSession,
         commits_data: List[Dict],
         repository: Repository,
-        raise_=0
     ) -> int:
         """Process a batch of commits and return the count of new commits."""
         commits_count = 0
@@ -186,7 +185,7 @@ class RepositoryService:
                     owner, repo, recent_orphan_commit.github_sha, page=1, per_page=self.update_fetch_items
                 )
                 commits_count += await self._process_commits_batch(
-                    session, before_commits, repository, raise_=1
+                    session, before_commits, repository
                 )
 
             # Fetch recent issues
