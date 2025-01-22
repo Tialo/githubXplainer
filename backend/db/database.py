@@ -214,15 +214,20 @@ if __name__ == "__main__":
     import asyncio
     from sqlalchemy.orm import sessionmaker
     
-    async def test_get_last_issue_with_null_parent():
+    async def test_get_commit_summary():
         engine = create_async_engine(settings.database_url)
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         
         async with async_session() as session:
-                
-            # Test the function
-            result = await get_last_issue_with_null_parent(session, 1)
-            print(result.id, result.number)
+            result = await session.execute(
+                text("SELECT summary FROM commit_summaries WHERE commit_id = 34")
+            )
+            summary = result.scalar_one_or_none()
+            if summary:
+                print(f"Commit Summary: {summary}")
+            else:
+                print("No summary found for commit_id 34")
 
     # Run the test
-    asyncio.run(test_get_last_issue_with_null_parent())
+    asyncio.run(test_get_commit_summary())
+
