@@ -28,8 +28,7 @@ class VectorStore:
 
     def add_summary(self, text: str, metadata: dict):
         self.store.add_documents(
-            [Document(text)],
-            metadatas=[metadata]
+            [Document(text, metadata=metadata)],
         )
         now = time.time()
         self.store.save_local(self.store_path)
