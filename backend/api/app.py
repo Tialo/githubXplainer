@@ -5,23 +5,26 @@ from fastapi import FastAPI, HTTPException, Depends, Body
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.repository_service import repository_service
-from backend.config.settings import get_session, settings
+from backend.config.settings import get_session, settings, async_session  # Add this import
 from backend.db.database import init_db
 from backend.services.elasticsearch.searcher import Searcher
 from backend.config.elasticsearch import get_elasticsearch_client
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from redis import Redis
+from backend.utils.logger import get_logger
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+logger.setLevel(logging.DEBUG)
 
-import logging
+def log_info(text, *params):
+    print(f"[{datetime.now()}] {text % params}")
 
-logging.disable(logging.WARNING)
-logging.basicConfig()
+def log_error(text, *params):
+    print(f"[{datetime.now()}] ERROR: {text % params}")
+
 logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 
 app = FastAPI(title="GitHub Xplainer")
@@ -29,39 +32,72 @@ app = FastAPI(title="GitHub Xplainer")
 # Add these variables after the app initialization
 scheduler = AsyncIOScheduler()
 
+# Replace the direct Redis client initialization with a function
+def get_redis_client():
+    return Redis(host='localhost', port=6379, db=0)
+
+LOCK_KEY = "repository_update_lock"
+LOCK_TIMEOUT = 300  # 5 minutes max lock time
+
 async def periodic_repository_update():
-    """Periodically update repository data."""
-    while True:
-        try:
-            async for session in get_session():
-                # Get all initialized repositories from database
-                repos = await repository_service.get_all_initialized_repositories(session)
-                for repo in repos:
-                    try:
-                        await repository_service.update_repository(
-                            session,
-                            repo.owner,
-                            repo.name
-                        )
-                        logger.info(f"Successfully updated repository {repo.owner}/{repo.name}")
-                    except Exception as e:
-                        logger.error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
-        except Exception as e:
-            logger.error(f"Error in periodic update: {str(e)}")
+    """Periodically update repository data with Redis lock."""
+    redis_client = get_redis_client()
+    # Try to acquire lock
+    lock_acquired = redis_client.set(
+        LOCK_KEY, 
+        'locked', 
+        ex=LOCK_TIMEOUT,
+        nx=True
+    )
+    
+    if not lock_acquired:
+        log_info("Another update task is still running, skipping this run")
+        return
+
+    log_info("Starting periodic repository update")
+    try:
+        async with async_session() as session:
+            repos = await repository_service.get_all_initialized_repositories(session)
+        log_info(f"Found {len(repos)} repositories to update")
+        
+        for repo in repos:
+            try:
+                await repository_service.update_repository(
+                    repo.owner,
+                    repo.name
+                )
+                log_info(f"Successfully updated repository {repo.owner}/{repo.name}")
+            except Exception as e:
+                log_error(f"Error updating repository {repo.owner}/{repo.name}: {str(e)}")
+                continue
+    except Exception as e:
+        log_error(f"Error in periodic update: {str(e)}")
+    finally:
+        # Release lock even if there was an error
+        redis_client.delete(LOCK_KEY)
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize the database and scheduler on app startup."""
     await init_db()
-
+    
     if settings.use_scheduler:
-        thr = threading.Thread(target=periodic_repository_update)
-        thr.start()
+        # Run every 2 minutes
+        scheduler.add_job(
+            periodic_repository_update,
+            trigger=IntervalTrigger(seconds=120),
+            id='repository_updater',
+            name='Repository periodic update',
+            replace_existing=True,
+            # max_instances=1  # Extra safety: ensure only one instance runs
+        )
+        scheduler.start()
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Shut down the scheduler when the app stops."""
-    scheduler.shutdown()
+    if settings.use_scheduler and scheduler.running:
+        scheduler.shutdown(wait=False)
 
 class RepositoryInit(BaseModel):
     owner: str
@@ -118,14 +154,16 @@ class RepositoryDelete(BaseModel):
     owner: str
     repo: str
 
+@app.get("/alive")
+async def alive():
+    return {"status": "alive"}
+
 @app.post("/repos/init", response_model=RepositoryResponse)
 async def initialize_repository(
     repo_init: RepositoryInit,
-    session: AsyncSession = Depends(get_session)
 ):
     try:
         repository, commits_count, issues_count = await repository_service.update_repository(
-            session,
             repo_init.owner,
             repo_init.repo
         )
@@ -143,7 +181,7 @@ async def initialize_repository(
             "message": str(e),
             "traceback": traceback.format_exc()
         }
-        logger.error(f"Error processing repository: {error_detail}")
+        log_error(f"Error processing repository: {error_detail}")
         raise HTTPException(
             status_code=500,
             detail=error_detail
@@ -176,7 +214,7 @@ async def delete_repository(
             "message": str(e),
             "traceback": traceback.format_exc()
         }
-        logger.error(f"Error deleting repository: {error_detail}")
+        log_error(f"Error deleting repository: {error_detail}")
         raise HTTPException(
             status_code=500,
             detail=error_detail
@@ -203,7 +241,7 @@ async def initialize_elasticsearch(
             "message": str(e),
             "traceback": traceback.format_exc()
         }
-        logger.error(f"Error initializing Elasticsearch: {error_detail}")
+        log_error(f"Error initializing Elasticsearch: {error_detail}")
         raise HTTPException(
             status_code=500,
             detail=error_detail
@@ -228,7 +266,7 @@ async def clear_elasticsearch():
             "message": str(e),
             "traceback": traceback.format_exc()
         }
-        logger.error(f"Error clearing Elasticsearch indices: {error_detail}")
+        log_error(f"Error clearing Elasticsearch indices: {error_detail}")
         raise HTTPException(
             status_code=500,
             detail=error_detail
@@ -248,7 +286,7 @@ async def search_all_content(query: SearchQuery):
             )
             return results
     except Exception as e:
-        logger.error(f"Search error: {str(e)}")
+        log_error(f"Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search/type/{content_type}")
@@ -290,7 +328,7 @@ async def search_content(
             
             return results
     except Exception as e:
-        logger.error(f"Search error: {str(e)}")
+        log_error(f"Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search/similar")
@@ -300,7 +338,7 @@ async def find_similar(query: SimilaritySearchQuery):
         if query.content_type not in ['issues', 'pull_requests']:
             raise HTTPException(status_code=400, detail="Content type must be 'issues' or 'pull_requests'")
         
-        logger.info(f"Searching for similar {query.content_type} based on: {query.text}")
+        log_info(f"Searching for similar {query.content_type} based on: {query.text}")
         es_client = await get_elasticsearch_client()
         async with Searcher(es_client) as searcher:
             results = await searcher.suggest_similar(
@@ -311,14 +349,15 @@ async def find_similar(query: SimilaritySearchQuery):
             )
             return results
     except Exception as e:
-        logger.error(f"Similarity search error: {str(e)}")
+        log_error(f"Similarity search error: {str(e)}")
         error_detail = {
             "type": type(e).__name__,
             "message": str(e),
             "traceback": traceback.format_exc()
         }
-        logger.error(f"Error processing repository: {error_detail}")
+        log_error(f"Error processing repository: {error_detail}")
         raise HTTPException(
             status_code=500,
             detail=error_detail
         )
+

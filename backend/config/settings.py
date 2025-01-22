@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # Scheduler settings
     repository_update_interval: int = 5
-    use_scheduler: bool = False
+    use_scheduler: bool = True
 
     # Redis settings
     REDIS_HOST: str = "localhost"

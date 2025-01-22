@@ -1,6 +1,7 @@
 from typing import Tuple, Optional, List, Dict
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from backend.config.settings import get_session, async_session
 from backend.services.github_service import GitHubService
 from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue
 from backend.db.database import (
@@ -148,8 +149,8 @@ class RepositoryService:
 
         return repository, commits_count, issues_count
 
-    async def update_repository(self, session: AsyncSession, owner: str, repo: str) -> Tuple[Repository, int, int]:
-        async with session.begin():
+    async def update_repository(self, owner: str, repo: str) -> Tuple[Repository, int, int]:
+        async with async_session() as session:
             # Get repository data
             repo_data = await self.github.get_repository(owner, repo)
             
@@ -168,20 +169,6 @@ class RepositoryService:
             # Update languages
             languages = await self.github.get_languages(owner, repo)
             await save_repository_languages(session, repository.id, languages)
-
-            # Update README
-            readme_data = await self.github.get_readme(owner, repo)
-            if readme_data:
-                import base64
-                readme_content = base64.b64decode(readme_data["content"]).decode("utf-8")
-                repository = await update_repository_attributes(
-                    session,
-                    repository.id,
-                    readme_content=readme_content,
-                    readme_path=readme_data["path"]
-                )
-                # Trigger README summary generation
-                generate_readme_summary_task(repository.id)
 
             # Fetch recent commits
             recent_commits = await self.github.get_commits(

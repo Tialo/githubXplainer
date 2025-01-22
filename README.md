@@ -24,7 +24,7 @@ docker-compose up postgres elasticsearch kafka kafka-ui
 python -m backend.tasks.summary_tasks
 
 # 4. Finally, start the API server (in another separate terminal)
-uvicorn backend.api.app:app --reload
+uvicorn backend.api.app:app --reload --log-level=info
 ```
 
 3. **Initialize Repository**

@@ -3,6 +3,7 @@ import six
 if sys.version_info >= (3, 12, 0):
     sys.modules['kafka.vendor.six.moves'] = six.moves
 
+import logging
 from backend.kafka.kafka_service import KafkaInterface
 from backend.db.database import SessionLocal
 from backend.services.summary_generator import save_commit_summary, get_commits_without_summaries
@@ -11,6 +12,8 @@ from backend.models.repository import ReadmeSummary, Repository
 from backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
+logging.disable(logging.WARNING)
+logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 kafka = KafkaInterface()
 
 

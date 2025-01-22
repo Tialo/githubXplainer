@@ -41,7 +41,7 @@ class KafkaInterface:
             print(f"Ошибка при записи в топик: {e}")
             return False
     
-    def read_from_topic(self, topic: str, timeout_ms: int = 1000) -> List[Dict[str, Any]]:
+    def read_from_topic(self, topic: str, timeout_ms: int = 5000) -> List[Dict[str, Any]]:
         """
         Чтение сообщений из топика
         
@@ -53,26 +53,29 @@ class KafkaInterface:
             List[Dict]: список сообщений
         """
         try:
-            if not self.consumer:
-                self.consumer = KafkaConsumer(
-                    topic,
-                    bootstrap_servers=self.bootstrap_servers,
-                    value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                    auto_offset_reset='latest',
-                    enable_auto_commit=True
-                )
+            self.consumer = KafkaConsumer(
+                topic,
+                bootstrap_servers=self.bootstrap_servers,
+                value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+                auto_offset_reset='earliest',  # Changed from 'latest' to 'earliest'
+                enable_auto_commit=True,
+                group_id='githubxplainer-consumer-group',  # Added consumer group
+                consumer_timeout_ms=timeout_ms
+            )
             
             messages = []
-            print("сейчас буду читать")
-            message_pack = self.consumer.poll(timeout_ms=timeout_ms)
-            print("вот что получил из топика", message_pack)
-            
-            for topic_partition, partition_messages in message_pack.items():
-                for message in partition_messages:
-                    messages.append(message.value)
+            for message in self.consumer:
+                messages.append(message.value)
             
             return messages
             
         except Exception as e:
             print(f"Ошибка при чтении из топика: {e}")
             return []
+
+    def close(self):
+        """Close Kafka connections"""
+        if self.producer:
+            self.producer.close()
+        if self.consumer:
+            self.consumer.close()
