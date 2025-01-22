@@ -72,6 +72,19 @@ def get_commits_without_summaries(db: Session) -> List[int]:
     result = db.execute(query)
     return [row[0] for row in result]
 
+def get_readme_without_summaries(db: Session) -> List[int]:
+    """
+    Find all repositories with READMEs that don't have corresponding summaries
+    """
+    query = text("""
+        SELECT r.id 
+        FROM repositories r 
+        LEFT JOIN readme_summaries rs ON r.id = rs.repository_id 
+        WHERE rs.id IS NULL
+    """)
+    result = db.execute(query)
+    return [row[0] for row in result]
+
 def generate_commit_summary(commit_id: int, db: Session) -> str:
     """
     Generate a summary for a commit based on its data, diffs, PR, and repository context
@@ -79,14 +92,12 @@ def generate_commit_summary(commit_id: int, db: Session) -> str:
     commit, diffs, pr, languages, readme_summary, repo_path = get_commit_data(db, commit_id)
     
     summarizer = LLMSummarizer()
-    summary = summarizer.summarize_commit(
+    return summarizer.summarize_commit(
         diffs=diffs,
         languages=languages,
         readme_summary=readme_summary,
         repo_path=repo_path
     )
-    
-    return f"Summary of commit {commit.github_sha[:8]}: {summary}"
 
 def save_commit_summary(db: Session, commit_id: int) -> None:
     """

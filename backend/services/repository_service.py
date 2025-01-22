@@ -1,7 +1,6 @@
-from typing import Tuple, Optional, List, Dict
+from typing import Tuple, List, Dict
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.config.settings import get_session, async_session
 from backend.services.github_service import GitHubService
 from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue
 from backend.db.database import (
@@ -13,7 +12,6 @@ from backend.db.database import (
     update_commit_attributes, get_deleted_issue_by_number,
     save_deleted_issue, save_repository_languages
 )
-from backend.tasks.summary_tasks import generate_readme_summary_task
 
 class RepositoryService:
     def __init__(self):
@@ -110,8 +108,6 @@ class RepositoryService:
                 readme_content=readme_content,
                 readme_path=readme_data["path"]
             )
-            # Trigger README summary generation
-            generate_readme_summary_task(repository.id)
 
         # Continue with existing initialization
         commits_data = await self.github.get_commits(

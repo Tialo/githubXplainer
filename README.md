@@ -17,7 +17,7 @@ pip install -r requirements.txt
 2. **Start Services (in this exact order)**
 ```bash
 # 1. Start infrastructure services first
-docker-compose up postgres elasticsearch kafka kafka-ui
+docker-compose up
 
 # 3. Start RQ worker (in a separate terminal)
 # RQ must be started before the API server since it processes the background tasks

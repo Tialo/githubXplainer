@@ -3,6 +3,7 @@ from typing import List, Optional
 from dataclasses import dataclass
 from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary
 from ollama import Client
+from datetime import datetime
 import re
 from backend.utils.logger import get_logger
 from backend.config.settings import settings
@@ -10,6 +11,12 @@ from backend.config.settings import settings
 
 logger = get_logger(__name__)
 logger.setLevel(logging.INFO)
+
+def log_info(text, *params):
+    print(f"[{datetime.now()}] {text % params}")
+
+def log_error(text, *params):
+    print(f"[{datetime.now()}] ERROR: {text % params}")
 
 
 @dataclass
@@ -136,7 +143,7 @@ class LLMSummarizer:
         return self.clean_summary(response.message.content)
 
     def summarize_commit(self, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repo_path: str = "") -> str:
-        logger.info("Summarizing commit diffs, repo %s", repo_path)
+        log_info("Summarizing commit diffs, repo %s", repo_path)
         
         self.set_repository_context(languages, readme_summary, repo_path)
         
@@ -145,9 +152,9 @@ class LLMSummarizer:
         
         group_summaries = []
         for group in diff_groups:
-            logger.info("Processing diff group of size %d", len(group.commit_diffs))
+            log_info("Processing diff group of size %d", len(group.commit_diffs))
             summary = self.process_group(group)
             group_summaries.append(summary)
 
-        logger.info("Generated %d summaries", len(group_summaries))
+        log_info("Generated %d summaries", len(group_summaries))
         return self.generate_final_summary(group_summaries)
