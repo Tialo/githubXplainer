@@ -13,7 +13,7 @@ from backend.db.database import (
     update_commit_attributes, get_deleted_issue_by_number,
     save_deleted_issue, save_repository_languages
 )
-from backend.tasks.summary_tasks import generate_commit_summary_task, generate_readme_summary_task
+from backend.tasks.summary_tasks import generate_readme_summary_task
 
 class RepositoryService:
     def __init__(self):
@@ -52,9 +52,6 @@ class RepositoryService:
                         file_diff=file_diff,
                     )
                     await save_commit_diff(session, diff)
-            
-            # Trigger summary generation task
-            generate_commit_summary_task(commit.id)
 
             commits_count += 1
         return commits_count
