@@ -8,8 +8,7 @@ logger = get_logger(__name__)
 
 class GeminiService:
     def __init__(self):
-        genai.configure(api_key=settings.gemini_api_key)
-        self.client = genai.client.AsyncClient()
+        self.client = genai.Client(api_key=settings.gemini_api_key)
         
         # Load the prompt template
         prompt_path = os.path.join(os.path.dirname(__file__), '../prompts/question_answer.txt')
@@ -35,7 +34,7 @@ class GeminiService:
                 commit_summaries_with_links="\n\n".join(commit_summaries)
             )
 
-            response = await self.client.models.generate_content(model="gemini-2.0-flash-exp", contsnts=prompt)
+            response = await self.client.aio.models.generate_content(model="gemini-2.0-flash-exp", contsnts=prompt)
             return response.text
         except Exception as e:
             logger.error(f"Gemini summarization error: {str(e)}")

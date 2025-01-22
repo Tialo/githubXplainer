@@ -44,8 +44,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = None
     OPENAI_API_BASE: str = None
 
-    gemini_api_key: str = os.getenv("GEMINI_API_KEY")
-
+    gemini_api_key: str = None
     class Config:
         env_file = ".env"
 
