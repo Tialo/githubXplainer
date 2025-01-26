@@ -18,8 +18,8 @@ pip install -r requirements.txt
 ```bash
 # 1. Start infrastructure services first
 docker-compose up
-
 uvicorn backend.api.app:app --reload --log-level=info
+npm run dev
 ```
 
 3. **Initialize Repository**
@@ -71,55 +71,7 @@ poetry run pytest
 - **Database issues**: Check `docker-compose ps` and database credentials
 - **GitHub API**: Verify token in `.env` and rate limits
 - **Service errors**: Check `logs/app.log` for details
-- **RQ worker**: Verify Redis connection and check RQ logs with `python -m backend.tasks.worker --loglevel=debug`
 
 ## API Documentation
 
 Browse OpenAPI docs at http://localhost:8000/docs
-
-## Monitoring
-
-### RQ Monitoring
-Access the Flower dashboard at http://localhost:5555 to monitor:
-- Task progress and history
-- Worker status
-- Real-time statistics
-- Task graphs and metrics
-
-### Kafka Monitoring
-Access the Kafka UI dashboard at http://localhost:8080 to monitor:
-- Topic management and browsing
-- Consumer groups
-- Message browsing
-- Cluster state
-- Performance metrics
-
-## Kafka Setup
-
-The application uses Kafka for message queuing with two main topics:
-- `readme`: For processing README file changes
-- `commit`: For processing commit information
-
-### Usage Example
-
-```typescript
-import { KafkaService, TOPICS } from './kafka/KafkaService';
-
-// Initialize service
-const kafkaService = new KafkaService();
-await kafkaService.initialize();
-
-// Create a consumer
-const consumer = await kafkaService.createConsumer('my-group');
-
-// Subscribe to topics
-await kafkaService.subscribeToTopic(consumer, TOPICS.README, async (message) => {
-  console.log('Received README update:', message);
-});
-
-// Publish a message
-await kafkaService.publishMessage(TOPICS.COMMIT, {
-  id: '123',
-  message: 'Initial commit'
-});
-```

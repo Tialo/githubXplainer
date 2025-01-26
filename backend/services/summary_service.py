@@ -27,8 +27,8 @@ class SummaryService:
     async def process_all_summaries(self):
         """Process both commits and README summaries in one go"""
         try:
-            await self.process_commits()
             await self.process_readmes()
+            await self.process_commits()
             await self.periodic_repository_update()
             log_info("Completed processing all summaries")
         except Exception as e:
@@ -45,17 +45,17 @@ class SummaryService:
                 async with async_session() as session:
                     async with session.begin():
                         summary, repo, commit = await save_commit_summary(session, commit_id)
-                        if summary:
-                            self.vector_store.add_summary(
-                                summary,
-                                {
-                                    "type": "commit",
-                                    "commit_id": commit_id,
-                                    "repo_id": repo.id,
-                                    "date": commit.committed_date.isoformat()
-                                }
-                            )
-                            log_info(f"Generated summary for commit {commit_id}")
+                if summary:
+                    self.vector_store.add_summary(
+                        summary,
+                        {
+                            "type": "commit",
+                            "commit_id": commit_id,
+                            "repo_id": repo.id,
+                            "date": commit.committed_date.isoformat()
+                        }
+                    )
+                    log_info(f"Generated summary for commit {commit_id}")
         except Exception as e:
             logger.error(f"Error processing commits: {str(e)} {traceback.format_exc()}")
 

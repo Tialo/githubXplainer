@@ -198,6 +198,7 @@ if __name__ == "__main__":
     summarizer = LLMSummarizer(
         backend="ollama"
     )
+    from sqlalchemy.sql import text
 
     async def test_summarizer():
         from backend.config.settings import async_session
@@ -211,7 +212,17 @@ if __name__ == "__main__":
                 log_error("Commit with id %d not found", commit_id)
                 return
 
-            summary = await summarizer.summarize_commit(diffs, languages, readme_summary, repository)
+            summary = await summarizer.summarize_commit(commit, diffs, languages, readme_summary, repository)
             log_info("Summary for commit %d: %s", commit_id, summary)
 
-    asyncio.run(test_summarizer())
+    # asyncio.run(test_summarizer())
+
+    async def delete_commit_summaries():
+        from backend.config.settings import async_session
+        async with async_session() as session:
+            result = await session.execute(
+                text("delete FROM commit_summaries")
+            )
+            await session.commit()
+
+    asyncio.run(delete_commit_summaries())

@@ -62,7 +62,7 @@ async def get_commit_data(
             ReadmeSummary.repository_id == commit.repository_id
         )
     )
-    readme_summary = result.scalar_one_or_none()
+    readme_summary = result.scalar_one()
     
     # Get repository info
     result = await db.execute(
@@ -96,6 +96,7 @@ async def generate_commit_summary(commit_id: int, db: AsyncSession) -> Tuple[str
         languages=languages,
         readme_summary=readme_summary,
         repository=repository,
+        commit=commit,
     ), repository, commit
 
 async def save_commit_summary(db: AsyncSession, commit_id: int) -> None:
