@@ -218,15 +218,15 @@ if __name__ == "__main__":
         engine = create_async_engine(settings.database_url)
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         
-        async with async_session() as session:
-            result = await session.execute(
-                text("delete FROM commit_summaries")
-            )
-            await session.commit()
+        # async with async_session() as session:
+        #     result = await session.execute(
+        #         text("delete FROM commit_summaries")
+        #     )
+        #     await session.commit()
         
         async with async_session() as session:
             result = await session.execute(
-                text("SELECT summary FROM commit_summaries WHERE commit_id = 34")
+                text("SELECT summary FROM commit_summaries WHERE commit_id = 5")
             )
             summary = result.scalar_one_or_none()
             if summary:
@@ -235,5 +235,28 @@ if __name__ == "__main__":
                 print("No summary found for commit_id 34")
 
     # Run the test
-    asyncio.run(test_get_commit_summary())
+    # asyncio.run(test_get_commit_summary())
 
+
+    async def get_readme_summary():
+        engine = create_async_engine(settings.database_url)
+        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+        async with async_session() as session:
+            result = await session.execute(
+                text("delete FROM readme_summaries")
+            )
+            await session.commit()
+
+        # async with async_session() as session:
+        #     result = await session.execute(
+        #         text("SELECT summarization FROM readme_summaries WHERE repository_id = 2")
+        #     )
+        #     summary = result.scalar_one_or_none()
+        #     if summary:
+        #         print(f"Readme Summary: {summary}")
+        #     else:
+        #         print("No summary found for repository_id 1")
+
+    # Run the test
+    asyncio.run(get_readme_summary())

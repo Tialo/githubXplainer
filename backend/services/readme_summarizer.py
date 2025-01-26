@@ -1,6 +1,7 @@
 from ollama import chat
 from backend.config.settings import settings
 import os
+import re
 
 class ReadmeSummarizer:
     def __init__(self):
@@ -24,4 +25,8 @@ class ReadmeSummarizer:
             }]
         )
 
-        return response.message.content
+        return self.clean_summary(response.message.content)
+
+    def clean_summary(self, summary: str) -> str:
+        # Remove content between <think> tags
+        return re.sub(r'<think>.*?</think>', '', summary, flags=re.DOTALL).strip()

@@ -49,6 +49,7 @@ AVOID:
 - Losing specific technical parameters
 - Over-generalizing implementation details
 - Dropping issue references
+- Don't rephrase project description, it's only for you to better understand the project. Mention only information specific to change
 
 OUTPUT FORMAT:
 [Technical Domain] Component: Specific technical changes with context from PR.
