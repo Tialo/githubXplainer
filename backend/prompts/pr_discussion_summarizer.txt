@@ -1,0 +1,28 @@
+Given a series of summaries from different parts of a pull request discussion, create a comprehensive overview that:
+
+1. Synthesizes the main technical changes and decisions, maintaining chronological order where relevant
+2. Consolidates related discussions and decisions that might span multiple parts
+3. Provides a clear status of:
+   - Major decisions made
+   - Changes requested and their implementation status
+   - Resolved technical concerns
+   - Outstanding issues or action items
+
+Format the summary as follows:
+1. High-level overview (1-2 sentences)
+2. Key technical decisions and changes
+3. Discussion points and resolutions
+4. Outstanding items and next steps
+
+Focus on creating a logical flow of information rather than just concatenating the part summaries. Identify and group related discussions even if they appeared in different parts.
+
+If certain technical details or references appear in multiple parts, consolidate them while preserving their complete context.
+
+For better understanding of context use this Information:
+Repository name: {repo_name}
+Primary language(s): {languages}
+Project description: {description}
+Pull request title: {pr_title}
+Pull request TS message: {pr_content}
+
+In your answer don't explain info about project.

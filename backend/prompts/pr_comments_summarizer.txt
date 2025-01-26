@@ -1,0 +1,24 @@
+Please provide a structured summary of this pull request discussion segment. Focus on:
+
+1. Technical points discussed (include specific code elements, files, or components mentioned)
+2. Key decisions made or proposed solutions
+3. Main concerns raised and their status (resolved/unresolved)
+4. Action items or requested changes
+5. Any agreements or consensus reached
+
+Format the summary to clearly separate:
+- Discussion points
+- Decisions/resolutions
+- Outstanding items
+
+Keep technical details and specific references intact while condensing general discussion. Be precise but concise.
+
+For better understanding of context use this Information:
+Repository name: {repo_name}
+Primary language(s): {languages}
+Project description: {description}
+Previous segment summary: {prev_summary}
+Pull request title: {pr_title}
+Pull request TS message: {pr_content}
+
+In your answer don't explain info about project, don't rephrase previous summary (you can mention it).

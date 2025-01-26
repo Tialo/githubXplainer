@@ -1,12 +1,13 @@
 from typing import Optional, Dict, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue, RepositoryLanguage
+from backend.models.repository import Repository, Commit, Issue, IssueComment, CommitDiff, DeletedIssue, RepositoryLanguage, PullRequestSummary
 from backend.models.base import Base
 from sqlalchemy.ext.asyncio import create_async_engine
 from backend.config.settings import settings
 from sqlalchemy import select, func, and_, exists, alias, text
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from datetime import datetime, timezone
 
 # Create SQLAlchemy engine for sync operations (Celery tasks)
 sync_engine = create_engine(
@@ -209,6 +210,40 @@ async def get_commits_by_ids(session: AsyncSession, commit_ids: List[int]) -> Li
         .where(Commit.id.in_(commit_ids))
     )
     return result.scalars().all()
+
+async def save_pull_request_summary(
+    session: AsyncSession,
+    issue_id: int,
+    summarization: str
+) -> PullRequestSummary:
+    """Save or update pull request summary."""
+    result = await session.execute(
+        select(PullRequestSummary).where(PullRequestSummary.issue_id == issue_id)
+    )
+    pr_summary = result.scalar_one_or_none()
+    
+    if pr_summary:
+        pr_summary.summarization = summarization
+        pr_summary.updated_at = datetime.now(timezone.utc)
+    else:
+        pr_summary = PullRequestSummary(
+            issue_id=issue_id,
+            summarization=summarization
+        )
+        session.add(pr_summary)
+    
+    await session.flush()
+    return pr_summary
+
+async def get_pull_request_summary(
+    session: AsyncSession,
+    issue_id: int
+) -> Optional[PullRequestSummary]:
+    """Get pull request summary by issue id."""
+    result = await session.execute(
+        select(PullRequestSummary).where(PullRequestSummary.issue_id == issue_id)
+    )
+    return result.scalar_one_or_none()
 
 if __name__ == "__main__":
     import asyncio

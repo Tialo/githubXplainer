@@ -189,6 +189,14 @@ class ReadmeSummary(Base):
     summarization = Column(Text)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+class PullRequestSummary(Base):
+    __tablename__ = "pull_request_summaries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    issue_id = Column(Integer, ForeignKey("issues.id"), unique=True)
+    summarization = Column(Text)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
 
 if __name__ == "__main__":
     print(_get_pr_number_from_title("mrg (#1) from test/branch"))
