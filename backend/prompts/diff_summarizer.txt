@@ -11,6 +11,7 @@ CONTEXT:
 Repository name: {repo_name}
 Primary language(s): {languages}
 Project description: {description}
+Commit message: {commit_message}
 REQUIREMENTS:
 
 Technical Focus:

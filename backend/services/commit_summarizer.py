@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional
 from dataclasses import dataclass
-from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary, Repository
+from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary, Repository, Commit
 from ollama import AsyncClient
 from datetime import datetime
 import re
@@ -139,7 +139,7 @@ class LLMSummarizer:
     def set_repository_context(self, languages: List[RepositoryLanguage], readme_summary: Optional[ReadmeSummary], repo_path: str) -> None:
         self.repo_context = RepositoryContext(languages=languages, readme_summary=readme_summary, repo_path=repo_path)
 
-    async def process_group(self, diff_group: CommitDiffGroup) -> str:
+    async def process_group(self, diff_group: CommitDiffGroup, commit_message: str) -> str:
         with open('backend/prompts/diff_summarizer.txt', 'r') as f:
             prompt_template = f.read()
 
@@ -147,6 +147,7 @@ class LLMSummarizer:
             repo_name=self.repo_context.repo_path,
             languages=self.repo_context.get_languages_str() if self.repo_context else "",
             description=self.repo_context.get_description_str() if self.repo_context else "",
+            commit_message=commit_message,
         )
 
         content = "\n\n".join(d.diff_content for d in diff_group.commit_diffs)
@@ -156,7 +157,7 @@ class LLMSummarizer:
         )
         return self.clean_summary(summary)
 
-    async def generate_final_summary(self, summaries: List[str]) -> str:
+    async def generate_final_summary(self, summaries: List[str], commit_message: str) -> str:
         with open('backend/prompts/chunks_summarizer.txt', 'r') as f:
             prompt_template = f.read()
 
@@ -164,6 +165,7 @@ class LLMSummarizer:
             repo_name=self.repo_context.repo_path,
             languages=self.repo_context.get_languages_str() if self.repo_context else "",
             description=self.repo_context.get_description_str() if self.repo_context else "",
+            commit_message=commit_message,
         )
 
         combined_summaries = "\n".join(summaries)
@@ -173,7 +175,7 @@ class LLMSummarizer:
         )
         return self.clean_summary(summary)
 
-    async def summarize_commit(self, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repository: Repository = None) -> str:
+    async def summarize_commit(self, commit: Commit, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repository: Repository = None) -> str:
         repo_path = f"{repository.owner}/{repository.name}"
         log_info("Summarizing commit diffs, repo %s", repo_path)
         
@@ -185,8 +187,31 @@ class LLMSummarizer:
         group_summaries = []
         for group in diff_groups:
             log_info("Processing diff group of size %d", len(group.commit_diffs))
-            summary = await self.process_group(group)
+            summary = await self.process_group(group, commit.message)
             group_summaries.append(summary)
 
         log_info("Generated %d summaries", len(group_summaries))
-        return await self.generate_final_summary(group_summaries)
+        return await self.generate_final_summary(group_summaries, commit.message)
+
+
+if __name__ == "__main__":
+    summarizer = LLMSummarizer(
+        backend="ollama"
+    )
+
+    async def test_summarizer():
+        from backend.config.settings import async_session
+        from backend.services.summary_generator import CommitNotFoundError, get_commit_data
+
+        async with async_session() as session:
+            commit_id = 1
+            try:
+                commit, diffs, pr, languages, readme_summary, repository = await get_commit_data(session, commit_id)
+            except CommitNotFoundError:
+                log_error("Commit with id %d not found", commit_id)
+                return
+
+            summary = await summarizer.summarize_commit(diffs, languages, readme_summary, repository)
+            log_info("Summary for commit %d: %s", commit_id, summary)
+
+    asyncio.run(test_summarizer())

@@ -5,6 +5,7 @@ INPUT CONTEXT:
 - Number of model summaries: {N}
 - Model summaries: [Summary1, Summary2, ..., SummaryN]
 - Pull Request summary: {pr_summary} (if available)
+- Commit message: {commit_message}
 
 SYNTHESIS REQUIREMENTS:
 
