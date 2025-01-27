@@ -27,10 +27,10 @@ class SummaryService:
     async def process_all_summaries(self):
         """Process both commits and README summaries in one go"""
         try:
-            await self.process_readmes()
-            await self.process_commits()
-            await self.process_prs()
             await self.periodic_repository_update()
+            await self.process_readmes()
+            await self.process_prs()
+            # await self.process_commits()
             log_info("Completed processing all summaries")
         except Exception as e:
             logger.error(f"Error in unified summary processing: {str(e)} {traceback.format_exc()}")

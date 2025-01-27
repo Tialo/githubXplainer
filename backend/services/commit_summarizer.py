@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional
 from dataclasses import dataclass
-from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary, Repository, Commit
+from backend.models.repository import CommitDiff, RepositoryLanguage, ReadmeSummary, Repository, Commit, Issue
 from ollama import AsyncClient
 from datetime import datetime
 import re
@@ -157,15 +157,22 @@ class LLMSummarizer:
         )
         return self.clean_summary(summary)
 
-    async def generate_final_summary(self, summaries: List[str], commit_message: str) -> str:
-        with open('backend/prompts/chunks_summarizer.txt', 'r') as f:
-            prompt_template = f.read()
+    async def generate_final_summary(self, summaries: List[str], commit_message: str, pr: Optional[Issue] = None, pr_summary: Optional[str] = None) -> str:
+        if pr is not None:
+            with open('backend/prompts/chunks_summarizer.txt', 'r') as f:
+                prompt_template = f.read()
+                additional_params = {}
+        else:
+            with open('backend/prompts/chunks_summarizerv2.txt', 'r') as f:
+                prompt_template = f.read()
+                additional_params = {"pr_title": pr.title, "pr_content": pr.body or "No message provided", "pr_summary": pr_summary or "No summary provided"}
 
         system_prompt = prompt_template.format(
             repo_name=self.repo_context.repo_path,
             languages=self.repo_context.get_languages_str() if self.repo_context else "",
             description=self.repo_context.get_description_str() if self.repo_context else "",
             commit_message=commit_message,
+            **additional_params,
         )
 
         combined_summaries = "\n".join(summaries)
@@ -181,7 +188,9 @@ class LLMSummarizer:
         diffs: List[CommitDiff],
         languages: List[RepositoryLanguage] = None,
         readme_summary: ReadmeSummary = None,
-        repository: Repository = None
+        repository: Repository = None,
+        pr: Optional[Issue] = None,
+        pr_summary: Optional[str] = None
     ) -> str:
         repo_path = f"{repository.owner}/{repository.name}"
         log_info("Summarizing commit diffs, repo %s", repo_path)
@@ -198,7 +207,7 @@ class LLMSummarizer:
             group_summaries.append(summary)
 
         log_info("Generated %d summaries", len(group_summaries))
-        return await self.generate_final_summary(group_summaries, commit.message)
+        return await self.generate_final_summary(group_summaries, commit.message, pr=pr, pr_summary=pr_summary)
 
 
 if __name__ == "__main__":

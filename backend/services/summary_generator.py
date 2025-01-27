@@ -22,7 +22,7 @@ class PullRequestNotFoundError(Exception):
 async def get_commit_data(
     db: AsyncSession, 
     commit_id: int
-) -> tuple[Commit, List[CommitDiff], Optional[Issue], List[RepositoryLanguage], Optional[ReadmeSummary], Repository]:
+) -> tuple[Commit, List[CommitDiff], Optional[Issue], List[RepositoryLanguage], Optional[ReadmeSummary], Repository, Optional[PullRequestSummary]]:
     """
     Retrieve commit data with related diffs, PR information, repository languages and readme summary
     """
@@ -43,6 +43,7 @@ async def get_commit_data(
     
     # Get related PR if exists
     pr = None
+    pr_summary = None
     if commit.pull_request_number:
         result = await db.execute(
             select(Issue).filter(
@@ -52,6 +53,14 @@ async def get_commit_data(
             )
         )
         pr = result.scalar_one_or_none()
+        
+        if pr:
+            result = await db.execute(
+                select(PullRequestSummary).filter(
+                    PullRequestSummary.issue_id == pr.id
+                )
+            )
+            pr_summary = result.scalar_one_or_none()
     
     # Get repository languages
     result = await db.execute(
@@ -75,7 +84,7 @@ async def get_commit_data(
     )
     repository = result.scalar_one_or_none()
     
-    return commit, diffs, pr, languages, readme_summary, repository
+    return commit, diffs, pr, languages, readme_summary, repository, pr_summary
 
 async def get_pr_data(
     db: AsyncSession,
@@ -155,7 +164,7 @@ async def get_prs_without_summaries(db: AsyncSession) -> List[int]:
 
 async def generate_commit_summary(commit_id: int, db: AsyncSession) -> Tuple[str, Repository]:
     """Generate a summary for a commit based on its data"""
-    commit, diffs, pr, languages, readme_summary, repository = await get_commit_data(db, commit_id)
+    commit, diffs, pr, languages, readme_summary, repository, pr_summary = await get_commit_data(db, commit_id)
     
     summarizer = LLMSummarizer()
     return await summarizer.summarize_commit(
@@ -164,6 +173,8 @@ async def generate_commit_summary(commit_id: int, db: AsyncSession) -> Tuple[str
         readme_summary=readme_summary,
         repository=repository,
         commit=commit,
+        pr=pr,
+        pr_summary=pr_summary,
     ), repository, commit
 
 async def save_commit_summary(db: AsyncSession, commit_id: int) -> None:
