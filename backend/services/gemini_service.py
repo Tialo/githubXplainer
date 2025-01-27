@@ -33,6 +33,8 @@ class GeminiService:
             content = f"{content}\nCommit: {commit_link}"
             commit_summaries.append(content)
 
+        # raise ValueError("\n\n".join(commit_summaries))
+
         # Format the prompt
         prompt = self.prompt_template.format(
             user_query=query,

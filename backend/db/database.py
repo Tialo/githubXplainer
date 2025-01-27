@@ -209,7 +209,9 @@ async def get_commits_by_ids(session: AsyncSession, commit_ids: List[int]) -> Li
         select(Commit)
         .where(Commit.id.in_(commit_ids))
     )
-    return result.scalars().all()
+    res = result.scalars().all()
+    # sort the results by the order of commit_ids
+    return sorted(res, key=lambda x: commit_ids.index(x.id))
 
 async def save_pull_request_summary(
     session: AsyncSession,

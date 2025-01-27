@@ -25,7 +25,7 @@ class VectorStore:
         if self.initialized:
             return
             
-        self.embeddings = OpenAIEmbeddings(api_key=settings.OPENAI_API_KEY, openai_api_base=settings.OPENAI_API_BASE)
+        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-large", api_key=settings.OPENAI_API_KEY, openai_api_base=settings.OPENAI_API_BASE)
         self.index = faiss.IndexFlatL2(len(self.embeddings.embed_query("123")))
         # Use absolute path in project root
         self.store_path = str(Path(__file__).parent.parent.parent / "vector_store")
@@ -54,3 +54,9 @@ class VectorStore:
 
     def search_similar(self, query: str, k: int = 5, filter: dict = None):
         return self.store.similarity_search(query, k=k, filter=filter)
+
+
+if __name__ == "__main__":
+    vs = VectorStore()
+    res = vs.store.similarity_search("Simplified code")
+    print(res)

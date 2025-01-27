@@ -84,10 +84,11 @@ class GeminiBackend(ModelBackend):
                     model=self.model_name,
                     contents=combined_prompt
                 )
-                continue
+                return response.text
             except:
                 await asyncio.sleep(15)
-        return response.text
+        else:
+            raise Exception("Failed to generate content")
 
 class LLMSummarizer:
     def __init__(self, max_group_size: int = 25000, backend: str = None ):
