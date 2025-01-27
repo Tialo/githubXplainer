@@ -30,7 +30,7 @@ class SummaryService:
             await self.periodic_repository_update()
             await self.process_readmes()
             await self.process_prs()
-            # await self.process_commits()
+            await self.process_commits()
             log_info("Completed processing all summaries")
         except Exception as e:
             logger.error(f"Error in unified summary processing: {str(e)} {traceback.format_exc()}")
@@ -113,6 +113,7 @@ class SummaryService:
             async with async_session() as session:
                 async with session.begin():
                     prs = await get_prs_without_summaries(session)
+                    log_info("Found %d pull requests to process" % len(prs))
 
             for pr_id in prs:
                 async with async_session() as session:

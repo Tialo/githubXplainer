@@ -154,7 +154,7 @@ async def get_prs_without_summaries(db: AsyncSession) -> List[int]:
             FROM issues i
             INNER JOIN commits c ON i.repository_id = c.repository_id 
                 AND i.number = c.pull_request_number
-            LEFT JOIN pull_request_summaries prs ON i.id = prs.pull_request_id
+            LEFT JOIN pull_request_summaries prs ON i.id = prs.issue_id
             WHERE i.is_pull_request = true 
             AND prs.id IS NULL
             LIMIT 5

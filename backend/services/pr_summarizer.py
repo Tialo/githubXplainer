@@ -25,11 +25,11 @@ class PullRequestDiscussionSummarizer:
         if backend is None:
             backend = settings.LLM_USE
         if backend == "ollama":
-            self.content_backend = OllamaBackend(settings.LLM_PR_CONTENT_SUMMARIZER)
-            self.final_backend = OllamaBackend(settings.LLM_PR_FINAL_SUMMARIZER)
+            self.content_backend = OllamaBackend(settings.LLM_DIFF_SUMMARIZER)
+            self.final_backend = OllamaBackend(settings.LLM_CHUNK_SUMMARIZER)
         elif backend == "gemini":
-            self.content_backend = GeminiBackend(settings.LLM_GEMINI_PR_MODEL)
-            self.final_backend = GeminiBackend(settings.LLM_GEMINI_PR_MODEL)
+            self.content_backend = GeminiBackend(settings.LLM_GEMINI_DIFF_MODEL)
+            self.final_backend = GeminiBackend(settings.LLM_GEMINI_CHUNK_MODEL)
         else:
             raise ValueError(f"Unsupported backend: {backend}")
 
@@ -131,3 +131,20 @@ class PullRequestDiscussionSummarizer:
         # Generate final discussion summary
         logger.info("Generating final PR discussion summary")
         return await self.generate_final_summary(issue, comment_summaries)
+
+
+if __name__ == "__main__":
+
+    async def get_summarization():
+        from sqlalchemy.sql import text
+        from backend.config.settings import async_session
+
+        async with async_session() as session:
+            async with session.begin():
+                result = await session.execute(
+                    text("SELECT summarization FROM pull_request_summaries WHERE id = 1")
+                )
+                return result.scalar_one_or_none()
+                
+    import asyncio
+    print(asyncio.run(get_summarization()))

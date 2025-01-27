@@ -7,7 +7,7 @@ Project description: {description}
 Commit message: {commit_message}
 Attached pull request title: {pr_title}
 Attached pull request message: {pr_content}
-Attached pull request discussion: {pr_summary}
+Attached pull request discussion summary: {pr_summary}
 
 SYNTHESIS REQUIREMENTS:
 
