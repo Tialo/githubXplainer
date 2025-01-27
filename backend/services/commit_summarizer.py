@@ -175,7 +175,14 @@ class LLMSummarizer:
         )
         return self.clean_summary(summary)
 
-    async def summarize_commit(self, commit: Commit, diffs: List[CommitDiff], languages: List[RepositoryLanguage] = None, readme_summary: ReadmeSummary = None, repository: Repository = None) -> str:
+    async def summarize_commit(
+        self,
+        commit: Commit,
+        diffs: List[CommitDiff],
+        languages: List[RepositoryLanguage] = None,
+        readme_summary: ReadmeSummary = None,
+        repository: Repository = None
+    ) -> str:
         repo_path = f"{repository.owner}/{repository.name}"
         log_info("Summarizing commit diffs, repo %s", repo_path)
         

@@ -3,7 +3,7 @@ import logging
 from sqlalchemy import select
 from datetime import datetime
 from backend.utils.logger import get_logger
-from backend.services.summary_generator import save_commit_summary, get_commits_without_summaries, get_readme_without_summaries
+from backend.services.summary_generator import save_commit_summary, get_commits_without_summaries, get_readme_without_summaries, get_prs_without_summaries, save_pr_summary
 from backend.services.readme_summarizer import ReadmeSummarizer
 from backend.models.repository import ReadmeSummary, Repository
 from backend.services.vector_store import VectorStore
@@ -29,6 +29,7 @@ class SummaryService:
         try:
             await self.process_readmes()
             await self.process_commits()
+            await self.process_prs()
             await self.periodic_repository_update()
             log_info("Completed processing all summaries")
         except Exception as e:
@@ -105,6 +106,21 @@ class SummaryService:
         
         await session.flush()
         log_info(f"Generated README summary for repository {repository_id}")
+
+    async def process_prs(self):
+        """Process pending pull request summaries"""
+        try:
+            async with async_session() as session:
+                async with session.begin():
+                    prs = await get_prs_without_summaries(session)
+
+            for pr_id in prs:
+                async with async_session() as session:
+                    async with session.begin():
+                        result = await save_pr_summary(session, pr_id)
+                log_info(f"Generated summary for PR {pr_id}")
+        except Exception as e:
+            logger.error(f"Error processing pull requests: {str(e)} {traceback.format_exc()}")
 
     async def periodic_repository_update(self):
         async with async_session() as session:
