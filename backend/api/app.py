@@ -54,7 +54,7 @@ async def startup_event():
     if settings.use_scheduler:
         scheduler.add_job(
             summary_service.process_all_summaries,
-            trigger=IntervalTrigger(seconds=6),
+            trigger=IntervalTrigger(seconds=60),
             id='summary_processor',
             name='Process all summaries',
             replace_existing=True,

@@ -170,9 +170,6 @@ class LLMSummarizer:
                 additional_params["pr_summary"] = pr_summary.summarization
             else:
                 additional_params["pr_summary"] = "No summary provided"
-            log_info("PR title: %s", pr.title)
-            log_info("PR body: %s", pr.body)
-            log_info("PR summary: %s", pr_summary.summarization)
 
         system_prompt = prompt_template.format(
             repo_name=self.repo_context.repo_path,
