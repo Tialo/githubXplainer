@@ -165,10 +165,10 @@ class LLMSummarizer:
         else:
             with open('backend/prompts/chunk_summarizerv2.txt', 'r') as f:
                 prompt_template = f.read()
-                additional_params = {"pr_title": pr.title, "pr_content": pr.body or "No message provided", "pr_summary": pr_summary or "No summary provided"}
-                log_info("PR title: %s", pr.title)
-                log_info("PR body: %s", pr.body)
-                log_info("PR summary: %s", pr_summary)
+            additional_params = {"pr_title": pr.title, "pr_content": pr.body or "No message provided", "pr_summary": pr_summary or "No summary provided"}
+            log_info("PR title: %s", pr.title)
+            log_info("PR body: %s", pr.body)
+            log_info("PR summary: %s", pr_summary)
 
         system_prompt = prompt_template.format(
             repo_name=self.repo_context.repo_path,
