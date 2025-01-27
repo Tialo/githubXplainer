@@ -159,11 +159,11 @@ class LLMSummarizer:
 
     async def generate_final_summary(self, summaries: List[str], commit_message: str, pr: Optional[Issue] = None, pr_summary: Optional[str] = None) -> str:
         if pr is not None:
-            with open('backend/prompts/chunks_summarizer.txt', 'r') as f:
+            with open('backend/prompts/chunk_summarizer.txt', 'r') as f:
                 prompt_template = f.read()
                 additional_params = {}
         else:
-            with open('backend/prompts/chunks_summarizerv2.txt', 'r') as f:
+            with open('backend/prompts/chunk_summarizerv2.txt', 'r') as f:
                 prompt_template = f.read()
                 additional_params = {"pr_title": pr.title, "pr_content": pr.body or "No message provided", "pr_summary": pr_summary or "No summary provided"}
                 log_info("PR title: %s", pr.title)
